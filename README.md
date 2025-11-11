@@ -113,17 +113,67 @@ El sistema generará automáticamente un ID único aleatorio (alfanumérico de 6
 - **Eliminar**: Seleccione un código y haga clic en "Eliminar" para removerlo de la base de datos
 - **Limpiar Base de Datos**: Elimina todos los códigos de la base de datos (acción irreversible)
 
+## Arquitectura del Proyecto
+
+El proyecto utiliza una arquitectura **MVP (Model-View-Presenter)** que separa claramente las responsabilidades:
+
+- **Models**: Gestión de datos y acceso a la base de datos
+- **Views**: Componentes de la interfaz de usuario (ventanas y widgets)
+- **Services**: Lógica de negocio (generación de códigos, exportación)
+- **Controllers**: Coordinación entre modelos, servicios y vistas
+- **Utils**: Utilidades y funciones auxiliares
+- **Config**: Configuración centralizada de la aplicación
+
 ## Estructura del Proyecto
 
 ```
-Codigo-de-barra/
-├── main.py                 # Interfaz gráfica principal
-├── database.py             # Gestión de base de datos SQLite
-├── barcode_generator.py    # Generación de códigos de barras
-├── requirements.txt        # Dependencias del proyecto
-├── README.md              # Este archivo
-├── codigos_barras.db      # Base de datos SQLite (se crea automáticamente)
-└── codigos_generados/     # Directorio con imágenes de códigos (se crea automáticamente)
+Generador-de-codigo-de-empleado/
+├── main.py                    # Punto de entrada principal
+├── src/                       # Código fuente principal
+│   ├── __init__.py
+│   ├── main.py               # Inicialización de la aplicación
+│   │
+│   ├── models/               # Capa de datos (Model)
+│   │   ├── __init__.py
+│   │   ├── database.py       # Gestor de base de datos SQLite
+│   │   └── barcode_model.py  # Modelo de datos para códigos
+│   │
+│   ├── services/             # Lógica de negocio
+│   │   ├── __init__.py
+│   │   ├── barcode_service.py    # Generación y validación de códigos
+│   │   └── export_service.py     # Exportación de códigos
+│   │
+│   ├── views/                # Capa de presentación (View)
+│   │   ├── __init__.py
+│   │   ├── main_window.py    # Ventana principal
+│   │   └── widgets/          # Widgets reutilizables
+│   │       ├── __init__.py
+│   │       ├── generation_panel.py  # Panel de generación
+│   │       └── list_panel.py        # Panel de listado
+│   │
+│   ├── controllers/          # Controladores (Presenter)
+│   │   ├── __init__.py
+│   │   └── main_controller.py  # Controlador principal
+│   │
+│   └── utils/               # Utilidades
+│       ├── __init__.py
+│       ├── file_utils.py     # Utilidades de archivos
+│       └── constants.py      # Constantes
+│
+├── config/                   # Configuración
+│   ├── __init__.py
+│   └── settings.py           # Configuración centralizada
+│
+├── data/                     # Datos de la aplicación
+│   ├── codigos_barras.db    # Base de datos SQLite (se crea automáticamente)
+│   └── codigos_generados/   # Directorio con imágenes (se crea automáticamente)
+│
+├── tests/                    # Pruebas unitarias (estructura preparada)
+│   └── __init__.py
+│
+├── env/                      # Entorno virtual
+├── requirements.txt          # Dependencias del proyecto
+└── README.md                 # Este archivo
 ```
 
 ## Base de Datos
@@ -142,13 +192,26 @@ La aplicación utiliza SQLite como base de datos local. El archivo `codigos_barr
 
 ## Notas Técnicas
 
-- Los códigos de barras se generan como imágenes PNG en el directorio `codigos_generados/`
+### Arquitectura MVP
+
+El proyecto sigue el patrón **Model-View-Presenter (MVP)**:
+
+- **Model**: `src/models/` - Gestiona el acceso a datos y la persistencia
+- **View**: `src/views/` - Componentes de la interfaz de usuario
+- **Presenter/Controller**: `src/controllers/` - Coordina la lógica entre modelos y vistas
+- **Services**: `src/services/` - Contiene la lógica de negocio reutilizable
+
+### Características Técnicas
+
+- Los códigos de barras se generan como imágenes PNG en el directorio `data/codigos_generados/`
 - Cada código tiene un ID único aleatorio alfanumérico de 6 caracteres (0-9, A-Z) que garantiza la unicidad
 - El sistema verifica duplicados antes de generar cada ID, asegurando que no se repitan
 - El ID generado es el valor que se codifica en el código de barras y aparece como texto debajo del código
 - Al escanear el código de barras, se leerá exactamente ese ID único
 - La base de datos incluye índices para optimizar las búsquedas
 - Los nombres de archivo exportados siguen el formato: `nombre_empleado_codigo_barras.png`
+- Configuración centralizada en `config/settings.py` para facilitar el mantenimiento
+- Separación clara de responsabilidades que facilita el escalado y mantenimiento
 
 ## Solución de Problemas
 

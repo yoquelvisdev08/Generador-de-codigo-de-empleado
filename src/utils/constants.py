@@ -1,0 +1,9 @@
+"""
+Constantes de la aplicación
+"""
+
+# Caracteres permitidos para IDs
+ID_CHARACTERS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+ID_LENGTH = 6
+MAX_ID_GENERATION_ATTEMPTS = 1000
+
