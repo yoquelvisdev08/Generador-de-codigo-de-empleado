@@ -2,7 +2,8 @@
 Panel de generación de códigos de barras
 """
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QLineEdit, 
-                             QPushButton, QComboBox, QGroupBox)
+                             QPushButton, QComboBox, QGroupBox, QHBoxLayout,
+                             QSpinBox, QCheckBox, QRadioButton, QButtonGroup)
 from PyQt6.QtCore import Qt
 
 
@@ -43,6 +44,52 @@ class GenerationPanel(QWidget):
         self.campo_nombre_empleado = QLineEdit()
         self.campo_nombre_empleado.setPlaceholderText("Ejemplo: Juan Pérez")
         layout_grupo.addWidget(self.campo_nombre_empleado)
+        
+        # Grupo de opciones de personalización del ID
+        grupo_opciones = QGroupBox("Opciones de Código de Barras")
+        layout_opciones = QVBoxLayout()
+        grupo_opciones.setLayout(layout_opciones)
+        
+        # Tipo de caracteres
+        label_tipo = QLabel("Tipo de caracteres:")
+        layout_opciones.addWidget(label_tipo)
+        
+        self.button_group_tipo = QButtonGroup(self)
+        self.radio_alfanumerico = QRadioButton("Alfanumérico (0-9, A-Z)")
+        self.radio_numerico = QRadioButton("Numérico (0-9)")
+        self.radio_solo_letras = QRadioButton("Solo Letras (A-Z)")
+        self.radio_alfanumerico.setChecked(True)
+        
+        self.button_group_tipo.addButton(self.radio_alfanumerico, 0)
+        self.button_group_tipo.addButton(self.radio_numerico, 1)
+        self.button_group_tipo.addButton(self.radio_solo_letras, 2)
+        
+        layout_opciones.addWidget(self.radio_alfanumerico)
+        layout_opciones.addWidget(self.radio_numerico)
+        layout_opciones.addWidget(self.radio_solo_letras)
+        
+        # Cantidad de caracteres
+        layout_cantidad = QHBoxLayout()
+        label_cantidad = QLabel("Cantidad de caracteres:")
+        layout_cantidad.addWidget(label_cantidad)
+        
+        self.spin_cantidad = QSpinBox()
+        self.spin_cantidad.setMinimum(3)
+        self.spin_cantidad.setMaximum(20)
+        self.spin_cantidad.setValue(10)
+        layout_cantidad.addWidget(self.spin_cantidad)
+        layout_cantidad.addStretch()
+        layout_opciones.addLayout(layout_cantidad)
+        
+        # Opción de incluir nombre (opcional)
+        self.check_incluir_nombre = QCheckBox("Incluir nombre del empleado en el código (opcional)")
+        self.check_incluir_nombre.setChecked(False)  # Opcional, no marcado por defecto
+        self.check_incluir_nombre.setToolTip(
+            "Si está marcado, el código incluirá las primeras letras del nombre del empleado"
+        )
+        layout_opciones.addWidget(self.check_incluir_nombre)
+        
+        layout_grupo.addWidget(grupo_opciones)
         
         self.label_id_generado = QLabel()
         self.label_id_generado.setStyleSheet(
@@ -87,10 +134,36 @@ class GenerationPanel(QWidget):
         Returns:
             Diccionario con los datos del formulario
         """
+        # Determinar tipo de caracteres seleccionado
+        if self.radio_alfanumerico.isChecked():
+            tipo_caracteres = "alfanumerico"
+        elif self.radio_numerico.isChecked():
+            tipo_caracteres = "numerico"
+        else:
+            tipo_caracteres = "solo_letras"
+        
         return {
             'nombre_empleado': self.campo_nombre_empleado.text().strip(),
             'formato': self.combo_formato.currentText(),
-            'descripcion': self.campo_descripcion.text().strip() or None
+            'descripcion': self.campo_descripcion.text().strip() or None,
+            'tipo_caracteres': tipo_caracteres,
+            'cantidad_caracteres': self.spin_cantidad.value(),
+            'incluir_nombre': self.check_incluir_nombre.isChecked()
+        }
+    
+    def obtener_opciones_id(self) -> dict:
+        """
+        Obtiene las opciones de personalización del ID
+        
+        Returns:
+            Diccionario con las opciones
+        """
+        datos = self.obtener_datos()
+        return {
+            'tipo_caracteres': datos['tipo_caracteres'],
+            'cantidad_caracteres': datos['cantidad_caracteres'],
+            'incluir_nombre': datos['incluir_nombre'],
+            'nombre_empleado': datos['nombre_empleado']
         }
     
     def limpiar_formulario(self):
@@ -106,6 +179,20 @@ class GenerationPanel(QWidget):
             siguiente_id: ID que se generará
         """
         self.label_id_generado.setText(f"ID que se generará: {siguiente_id}")
+    
+    def conectar_senales_actualizacion(self, callback):
+        """
+        Conecta las señales de los controles para actualizar el ID en tiempo real
+        
+        Args:
+            callback: Función a llamar cuando cambien las opciones
+        """
+        self.campo_nombre_empleado.textChanged.connect(callback)
+        self.radio_alfanumerico.toggled.connect(callback)
+        self.radio_numerico.toggled.connect(callback)
+        self.radio_solo_letras.toggled.connect(callback)
+        self.spin_cantidad.valueChanged.connect(callback)
+        self.check_incluir_nombre.toggled.connect(callback)
     
     def mostrar_vista_previa(self, ruta_imagen: str):
         """

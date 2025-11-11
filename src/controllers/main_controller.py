@@ -14,6 +14,7 @@ from src.services.export_service import ExportService
 from src.views.main_window import MainWindow
 from src.utils.file_utils import obtener_ruta_imagen
 from src.utils.auth_utils import solicitar_password
+from src.utils.id_generator import IDGenerator
 
 
 class MainController:
@@ -36,6 +37,8 @@ class MainController:
         """Conecta las señales de los widgets con los métodos del controlador"""
         # Panel de generación
         self.main_window.generation_panel.boton_generar.clicked.connect(self.generar_codigo)
+        # Conectar señales para actualización en tiempo real del ID
+        self.main_window.generation_panel.conectar_senales_actualizacion(self.actualizar_id_preview)
         
         # Panel de listado
         self.main_window.list_panel.campo_busqueda.textChanged.connect(self.buscar_codigos)
@@ -60,6 +63,7 @@ class MainController:
         nombre_empleado = datos['nombre_empleado']
         formato = datos['formato']
         descripcion = datos['descripcion']
+        opciones_id = self.main_window.generation_panel.obtener_opciones_id()
         
         if not nombre_empleado:
             QMessageBox.warning(
@@ -69,7 +73,14 @@ class MainController:
             return
         
         try:
-            id_unico_generado = self.db_manager.obtener_siguiente_id_secuencial()
+            # Generar ID personalizado según las opciones seleccionadas
+            id_unico_generado = IDGenerator.generar_id_personalizado(
+                tipo=opciones_id['tipo_caracteres'],
+                longitud=opciones_id['cantidad_caracteres'],
+                incluir_nombre=opciones_id['incluir_nombre'],
+                nombre_empleado=nombre_empleado if opciones_id['incluir_nombre'] else None,
+                verificar_duplicado=self.db_manager.verificar_codigo_existe
+            )
             
             codigo_barras, id_unico_archivo, ruta_imagen = self.barcode_service.generar_codigo_barras(
                 id_unico_generado, formato, id_unico_generado, nombre_empleado
@@ -316,9 +327,33 @@ class MainController:
                 )
     
     def actualizar_id_preview(self):
-        """Actualiza la vista previa del ID que se generará"""
-        siguiente_id = self.db_manager.obtener_siguiente_id_secuencial()
-        self.main_window.generation_panel.actualizar_id_preview(siguiente_id)
+        """Actualiza la vista previa del ID que se generará en tiempo real"""
+        try:
+            opciones = self.main_window.generation_panel.obtener_opciones_id()
+            nombre_empleado = opciones['nombre_empleado']
+            incluir_nombre = opciones['incluir_nombre']
+            
+            # Si se debe incluir el nombre pero no hay nombre, mostrar mensaje
+            if incluir_nombre and not nombre_empleado:
+                self.main_window.generation_panel.actualizar_id_preview(
+                    "Ingrese el nombre del empleado para ver el ID"
+                )
+                return
+            
+            # Generar un ID de ejemplo (sin verificar duplicados para la vista previa)
+            id_ejemplo = IDGenerator.generar_id_personalizado(
+                tipo=opciones['tipo_caracteres'],
+                longitud=opciones['cantidad_caracteres'],
+                incluir_nombre=incluir_nombre,
+                nombre_empleado=nombre_empleado if incluir_nombre else None,
+                verificar_duplicado=None  # No verificar en la vista previa
+            )
+            
+            self.main_window.generation_panel.actualizar_id_preview(id_ejemplo)
+        except Exception:
+            # Si hay error, usar el método tradicional
+            siguiente_id = self.db_manager.obtener_siguiente_id_secuencial()
+            self.main_window.generation_panel.actualizar_id_preview(siguiente_id)
     
     def actualizar_estadisticas(self):
         """Actualiza las estadísticas en la barra de estado"""
