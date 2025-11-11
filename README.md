@@ -21,6 +21,16 @@ Aplicación de escritorio con interfaz gráfica para generar códigos de barras 
 - Python 3.8 o superior
 - Windows, Linux o macOS
 
+### Requisitos Adicionales para macOS
+
+Si está usando macOS, necesitará instalar la librería `zbar` (requerida por `pyzbar` para la lectura de códigos de barras):
+
+```bash
+brew install zbar
+```
+
+**Nota:** El script de activación del entorno virtual está configurado para configurar automáticamente las variables de entorno necesarias en macOS. Si tiene problemas, asegúrese de que Homebrew esté instalado y que `zbar` esté correctamente instalado.
+
 ## Instalación
 
 1. Clonar o descargar el proyecto
@@ -60,6 +70,8 @@ Las dependencias incluyen:
 - PyQt6: Para la interfaz gráfica
 - python-barcode: Para generar códigos de barras
 - Pillow: Para el procesamiento de imágenes
+- pyzbar: Para la lectura y validación de códigos de barras (requiere zbar en macOS)
+- numpy: Para el procesamiento de imágenes
 
 ## Uso
 
@@ -72,6 +84,8 @@ python main.py
 ```
 
 **Nota:** Asegúrese de tener el entorno virtual activado antes de ejecutar la aplicación. Verá `(env)` al inicio de su línea de comandos cuando esté activado.
+
+**En macOS:** Si obtiene un error relacionado con `zbar`, asegúrese de haber instalado `zbar` con Homebrew (ver requisitos adicionales arriba) y de que el entorno virtual esté activado correctamente. El script de activación configura automáticamente las variables de entorno necesarias.
 
 ### Generar un código de barras
 
@@ -154,6 +168,30 @@ Estos formatos requieren exactamente 13 y 8 dígitos respectivamente. Asegúrese
 ### La base de datos no se crea
 
 Verifique que tenga permisos de escritura en el directorio del proyecto.
+
+### Error "Unable to find zbar shared library" en macOS
+
+Este error ocurre cuando `pyzbar` no puede encontrar la librería `zbar`. Solución:
+
+1. Instale `zbar` con Homebrew:
+   ```bash
+   brew install zbar
+   ```
+
+2. Asegúrese de activar el entorno virtual correctamente:
+   ```bash
+   source env/bin/activate
+   ```
+
+3. El script de activación del entorno virtual está configurado para configurar automáticamente las variables de entorno necesarias. Si el problema persiste, puede configurar manualmente:
+   ```bash
+   export DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_FALLBACK_LIBRARY_PATH
+   ```
+
+4. Use `python3` en lugar de `python` cuando el entorno virtual esté activado:
+   ```bash
+   python3 main.py
+   ```
 
 ## Licencia
 
