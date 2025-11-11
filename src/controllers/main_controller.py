@@ -43,8 +43,9 @@ class MainController:
         # Panel de listado
         self.main_window.list_panel.campo_busqueda.textChanged.connect(self.buscar_codigos)
         self.main_window.list_panel.boton_refrescar.clicked.connect(self.cargar_codigos)
+        # Mostrar imagen automáticamente al seleccionar una fila
+        self.main_window.list_panel.tabla_codigos.itemSelectionChanged.connect(self.mostrar_imagen_seleccionada)
         self.main_window.list_panel.tabla_codigos.doubleClicked.connect(self.mostrar_detalle_codigo)
-        self.main_window.list_panel.boton_ver_imagen.clicked.connect(self.ver_imagen_codigo)
         self.main_window.list_panel.boton_exportar.clicked.connect(self.exportar_seleccionados)
         self.main_window.list_panel.boton_exportar_todos.clicked.connect(self.exportar_todos_zip)
         self.main_window.list_panel.boton_backup.clicked.connect(self.backup_base_datos)
@@ -150,32 +151,27 @@ class MainController:
         """Busca códigos según el término de búsqueda"""
         self.cargar_codigos()
     
-    def mostrar_detalle_codigo(self):
-        """Muestra el detalle del código seleccionado"""
-        self.ver_imagen_codigo()
-    
-    def ver_imagen_codigo(self):
-        """Muestra la imagen del código seleccionado"""
+    def mostrar_imagen_seleccionada(self):
+        """Muestra automáticamente la imagen del código seleccionado en la tabla"""
         resultado = self.main_window.list_panel.obtener_fila_seleccionada()
         if resultado is None:
-            QMessageBox.warning(
-                self.main_window, "Advertencia",
-                "Por favor seleccione un código de la tabla"
-            )
+            # Si no hay selección, limpiar la vista previa
             return
         
         id_db, codigo_barras, id_unico, formato, nombre_archivo = resultado
         ruta_imagen = IMAGES_DIR / nombre_archivo
         
-        if not ruta_imagen.exists():
-            QMessageBox.warning(
-                self.main_window, "Error",
-                f"No se encontró la imagen del código de barras.\n"
-                f"Ruta buscada: {ruta_imagen}"
+        if ruta_imagen.exists():
+            self.main_window.generation_panel.mostrar_vista_previa(str(ruta_imagen))
+        else:
+            # Si la imagen no existe, mostrar mensaje en la vista previa
+            self.main_window.generation_panel.label_vista_previa.setText(
+                f"Imagen no encontrada:\n{nombre_archivo}"
             )
-            return
-        
-        self.main_window.generation_panel.mostrar_vista_previa(str(ruta_imagen))
+    
+    def mostrar_detalle_codigo(self):
+        """Muestra el detalle del código seleccionado (doble clic)"""
+        self.mostrar_imagen_seleccionada()
     
     def exportar_seleccionados(self):
         """Exporta los códigos seleccionados"""

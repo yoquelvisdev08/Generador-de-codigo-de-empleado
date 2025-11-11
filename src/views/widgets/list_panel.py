@@ -68,9 +68,6 @@ class ListPanel(QWidget):
         
         layout_botones = QHBoxLayout()
         
-        self.boton_ver_imagen = QPushButton("Ver Imagen")
-        layout_botones.addWidget(self.boton_ver_imagen)
-        
         self.boton_exportar = QPushButton("Exportar Seleccionados")
         layout_botones.addWidget(self.boton_exportar)
         
