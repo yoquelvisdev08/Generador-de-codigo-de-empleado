@@ -72,6 +72,7 @@ Las dependencias incluyen:
 - Pillow: Para el procesamiento de imágenes
 - pyzbar: Para la lectura y validación de códigos de barras (requiere zbar en macOS)
 - numpy: Para el procesamiento de imágenes
+- python-dotenv: Para gestionar variables de entorno y configuración de seguridad
 
 ## Uso
 
@@ -164,6 +165,10 @@ Generador-de-codigo-de-empleado/
 │   ├── __init__.py
 │   └── settings.py           # Configuración centralizada
 │
+├── .env                      # Variables de entorno (contraseña de admin)
+├── .env.example              # Ejemplo de archivo de configuración
+├── .gitignore                # Archivos ignorados por Git
+│
 ├── data/                     # Datos de la aplicación
 │   ├── codigos_barras.db    # Base de datos SQLite (se crea automáticamente)
 │   └── codigos_generados/   # Directorio con imágenes (se crea automáticamente)
@@ -255,6 +260,37 @@ Este error ocurre cuando `pyzbar` no puede encontrar la librería `zbar`. Soluci
    ```bash
    python3 main.py
    ```
+
+## Seguridad y Autenticación
+
+La aplicación incluye un sistema de autenticación para proteger acciones críticas como eliminar códigos o limpiar la base de datos.
+
+### Configuración de Contraseña
+
+1. **Archivo `.env`**: Cree un archivo `.env` en la raíz del proyecto (puede copiar `.env.example`):
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Configurar contraseña**: Edite el archivo `.env` y cambie la contraseña por defecto:
+   ```env
+   ADMIN_PASSWORD=tu_contraseña_segura_aqui
+   ```
+
+3. **Importante**: 
+   - El archivo `.env` está en `.gitignore` y no se subirá al repositorio
+   - Cambie la contraseña por defecto (`admin123`) en producción
+   - Use una contraseña segura para proteger sus datos
+
+### Acciones Protegidas
+
+Las siguientes acciones requieren autenticación:
+- **Eliminar código**: Se solicita contraseña antes de eliminar un código individual
+- **Limpiar base de datos**: Se solicita contraseña antes de eliminar todos los códigos
+
+### Diálogo de Autenticación
+
+Cuando intente realizar una acción protegida, aparecerá un diálogo solicitando la contraseña de administrador. Si la contraseña es incorrecta, se mostrará un mensaje de error y podrá intentar nuevamente.
 
 ## Licencia
 

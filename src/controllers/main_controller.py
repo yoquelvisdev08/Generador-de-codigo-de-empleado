@@ -13,6 +13,7 @@ from src.services.barcode_service import BarcodeService
 from src.services.export_service import ExportService
 from src.views.main_window import MainWindow
 from src.utils.file_utils import obtener_ruta_imagen
+from src.utils.auth_utils import solicitar_password
 
 
 class MainController:
@@ -259,6 +260,10 @@ class MainController:
         
         id_db, codigo_barras, id_unico, formato, nombre_archivo = resultado
         
+        # Solicitar contraseña antes de eliminar
+        if not solicitar_password(self.main_window, "eliminar este código"):
+            return
+        
         respuesta = QMessageBox.question(
             self.main_window, "Confirmar Eliminación",
             f"¿Está seguro de que desea eliminar este código?\n"
@@ -283,6 +288,10 @@ class MainController:
     
     def limpiar_base_datos(self):
         """Limpia toda la base de datos"""
+        # Solicitar contraseña antes de limpiar la base de datos
+        if not solicitar_password(self.main_window, "limpiar toda la base de datos"):
+            return
+        
         respuesta = QMessageBox.question(
             self.main_window, "Confirmar Limpieza",
             "¿Está seguro de que desea eliminar TODOS los códigos de la base de datos?\n\n"

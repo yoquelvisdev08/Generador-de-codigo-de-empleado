@@ -3,8 +3,13 @@ Configuración de la aplicación
 """
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
+# Cargar variables de entorno desde .env
 BASE_DIR = Path(__file__).resolve().parent.parent
+ENV_FILE = BASE_DIR / ".env"
+load_dotenv(ENV_FILE)
+
 DATA_DIR = BASE_DIR / "data"
 IMAGES_DIR = DATA_DIR / "codigos_generados"
 DB_PATH = DATA_DIR / "codigos_barras.db"
@@ -42,4 +47,10 @@ BARCODE_IMAGE_OPTIONS = {
 
 # Caracteres inválidos para nombres de archivo
 INVALID_FILENAME_CHARS = ['/', '\\', ':', '*', '?', '"', '<', '>', '|']
+
+# Configuración de seguridad
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
+# Si no hay contraseña configurada, usar una por defecto (se recomienda cambiar)
+if not ADMIN_PASSWORD:
+    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD_DEFAULT", "admin123")
 
