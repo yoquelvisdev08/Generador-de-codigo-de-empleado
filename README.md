@@ -171,7 +171,8 @@ Generador-de-codigo-de-empleado/
 │
 ├── data/                     # Datos de la aplicación
 │   ├── codigos_barras.db    # Base de datos SQLite (se crea automáticamente)
-│   └── codigos_generados/   # Directorio con imágenes (se crea automáticamente)
+│   ├── codigos_generados/   # Directorio con imágenes (se crea automáticamente)
+│   └── backups/             # Backups automáticos de la base de datos
 │
 ├── tests/                    # Pruebas unitarias (estructura preparada)
 │   └── __init__.py
@@ -217,6 +218,9 @@ El proyecto sigue el patrón **Model-View-Presenter (MVP)**:
 - Los nombres de archivo exportados siguen el formato: `nombre_empleado_codigo_barras.png`
 - Configuración centralizada en `config/settings.py` para facilitar el mantenimiento
 - Separación clara de responsabilidades que facilita el escalado y mantenimiento
+- **Backup automático**: Se crean backups automáticos antes de operaciones críticas (eliminar, limpiar BD)
+- **Gestión optimizada de conexiones**: Uso de context managers para mejor manejo de recursos
+- **Limpieza automática de backups**: Se mantienen solo los 10 backups más recientes
 
 ## Solución de Problemas
 
@@ -291,6 +295,34 @@ Las siguientes acciones requieren autenticación:
 ### Diálogo de Autenticación
 
 Cuando intente realizar una acción protegida, aparecerá un diálogo solicitando la contraseña de administrador. Si la contraseña es incorrecta, se mostrará un mensaje de error y podrá intentar nuevamente.
+
+## Backup Automático
+
+La aplicación incluye un sistema de backup automático para proteger sus datos:
+
+### Características
+
+- **Backup automático antes de operaciones críticas**:
+  - Antes de eliminar un código individual
+  - Antes de limpiar toda la base de datos
+  
+- **Ubicación de backups**: Los backups se guardan en `data/backups/`
+
+- **Formato de nombres**: `backup_[razon]_[timestamp].db`
+  - Ejemplo: `backup_antes_eliminar_id_5_20251111_182905.db`
+
+- **Limpieza automática**: Se mantienen automáticamente solo los 10 backups más recientes
+
+- **Backup manual**: Puede crear backups manuales usando el botón "Backup BD" en la interfaz
+
+### Restaurar desde Backup
+
+Para restaurar un backup:
+
+1. Localice el archivo de backup en `data/backups/`
+2. Detenga la aplicación si está en ejecución
+3. Reemplace `data/codigos_barras.db` con el archivo de backup deseado
+4. Reinicie la aplicación
 
 ## Licencia
 

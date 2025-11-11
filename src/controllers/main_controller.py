@@ -287,7 +287,8 @@ class MainController:
             if self.db_manager.eliminar_codigo(id_db):
                 QMessageBox.information(
                     self.main_window, "Éxito",
-                    "Código eliminado de la base de datos"
+                    "Código eliminado de la base de datos.\n\n"
+                    "Nota: Se creó un backup automático antes de la eliminación."
                 )
                 self.cargar_codigos()
                 self.actualizar_estadisticas()
@@ -315,7 +316,8 @@ class MainController:
             if self.db_manager.limpiar_base_datos():
                 QMessageBox.information(
                     self.main_window, "Éxito",
-                    "Base de datos limpiada exitosamente"
+                    "Base de datos limpiada exitosamente.\n\n"
+                    "Nota: Se creó un backup automático antes de la limpieza."
                 )
                 self.cargar_codigos()
                 self.actualizar_estadisticas()
@@ -323,7 +325,8 @@ class MainController:
             else:
                 QMessageBox.warning(
                     self.main_window, "Error",
-                    "No se pudo limpiar la base de datos"
+                    "No se pudo limpiar la base de datos.\n\n"
+                    "Verifique que se haya creado el backup automático."
                 )
     
     def actualizar_id_preview(self):

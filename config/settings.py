@@ -13,10 +13,12 @@ load_dotenv(ENV_FILE)
 DATA_DIR = BASE_DIR / "data"
 IMAGES_DIR = DATA_DIR / "codigos_generados"
 DB_PATH = DATA_DIR / "codigos_barras.db"
+BACKUPS_DIR = DATA_DIR / "backups"
 
 # Asegurar que los directorios existan
 IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
+BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Configuración de la aplicación
 APP_NAME = "Generador de Códigos de Barras"
