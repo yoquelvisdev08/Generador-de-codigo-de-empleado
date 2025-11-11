@@ -86,6 +86,13 @@ class ListPanel(QWidget):
         self.boton_limpiar.setStyleSheet("background-color: #ff8800; color: white;")
         layout_botones.addWidget(self.boton_limpiar)
         
+        self.boton_limpiar_imagenes = QPushButton("Limpiar Imágenes Huérfanas")
+        self.boton_limpiar_imagenes.setStyleSheet("background-color: #6c757d; color: white;")
+        self.boton_limpiar_imagenes.setToolTip(
+            "Elimina imágenes que no tienen registro en la base de datos"
+        )
+        layout_botones.addWidget(self.boton_limpiar_imagenes)
+        
         layout_botones.addStretch()
         layout_listado.addLayout(layout_botones)
         

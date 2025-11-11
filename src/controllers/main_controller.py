@@ -51,6 +51,7 @@ class MainController:
         self.main_window.list_panel.boton_backup.clicked.connect(self.backup_base_datos)
         self.main_window.list_panel.boton_eliminar.clicked.connect(self.eliminar_codigo)
         self.main_window.list_panel.boton_limpiar.clicked.connect(self.limpiar_base_datos)
+        self.main_window.list_panel.boton_limpiar_imagenes.clicked.connect(self.limpiar_imagenes_huerfanas)
     
     def _cargar_datos_iniciales(self):
         """Carga los datos iniciales en la interfaz"""
@@ -275,15 +276,15 @@ class MainController:
             self.main_window, "Confirmar Eliminación",
             f"¿Está seguro de que desea eliminar este código?\n"
             f"ID Único: {id_unico}\n\n"
-            "Nota: La imagen no se eliminará del disco.",
+            "Nota: La imagen también se eliminará del disco.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         
         if respuesta == QMessageBox.StandardButton.Yes:
-            if self.db_manager.eliminar_codigo(id_db):
+            if self.db_manager.eliminar_codigo(id_db, eliminar_imagen=True):
                 QMessageBox.information(
                     self.main_window, "Éxito",
-                    "Código eliminado de la base de datos.\n\n"
+                    "Código e imagen eliminados correctamente.\n\n"
                     "Nota: Se creó un backup automático antes de la eliminación."
                 )
                 self.cargar_codigos()
@@ -309,10 +310,10 @@ class MainController:
         )
         
         if respuesta == QMessageBox.StandardButton.Yes:
-            if self.db_manager.limpiar_base_datos():
+            if self.db_manager.limpiar_base_datos(eliminar_imagenes=True):
                 QMessageBox.information(
                     self.main_window, "Éxito",
-                    "Base de datos limpiada exitosamente.\n\n"
+                    "Base de datos e imágenes limpiadas exitosamente.\n\n"
                     "Nota: Se creó un backup automático antes de la limpieza."
                 )
                 self.cargar_codigos()
@@ -324,6 +325,25 @@ class MainController:
                     "No se pudo limpiar la base de datos.\n\n"
                     "Verifique que se haya creado el backup automático."
                 )
+    
+    def limpiar_imagenes_huerfanas(self):
+        """Limpia imágenes huérfanas (imágenes sin registro en la BD)"""
+        respuesta = QMessageBox.question(
+            self.main_window, "Confirmar Limpieza",
+            "¿Desea eliminar las imágenes que no tienen registro en la base de datos?\n\n"
+            "Esto eliminará solo las imágenes huérfanas, no afectará los códigos existentes.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        
+        if respuesta == QMessageBox.StandardButton.Yes:
+            eliminadas, errores = self.db_manager.limpiar_imagenes_huerfanas()
+            
+            mensaje = f"Limpieza completada:\n{eliminadas} imagen(es) huérfana(s) eliminada(s)"
+            if errores > 0:
+                mensaje += f"\n{errores} error(es) al eliminar"
+            
+            QMessageBox.information(self.main_window, "Limpieza de Imágenes", mensaje)
     
     def actualizar_id_preview(self):
         """Actualiza la vista previa del ID que se generará en tiempo real"""

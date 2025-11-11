@@ -10,7 +10,7 @@ from typing import Optional, List, Tuple, ContextManager
 from pathlib import Path
 from contextlib import contextmanager
 
-from config.settings import DB_PATH, BACKUPS_DIR
+from config.settings import DB_PATH, BACKUPS_DIR, IMAGES_DIR
 from src.utils.constants import ID_CHARACTERS, ID_LENGTH, MAX_ID_GENERATION_ATTEMPTS
 
 # Configurar logging
@@ -283,17 +283,31 @@ class DatabaseManager:
             """)
             return cursor.fetchall()
     
-    def eliminar_codigo(self, codigo_id: int) -> bool:
+    def eliminar_codigo(self, codigo_id: int, eliminar_imagen: bool = True) -> bool:
         """
         Elimina un código de barras por su ID
         Crea backup automático antes de eliminar
         
         Args:
             codigo_id: ID del código a eliminar
+            eliminar_imagen: Si True, elimina también la imagen asociada
             
         Returns:
             True si se eliminó correctamente, False en caso contrario
         """
+        # Obtener información del código antes de eliminarlo
+        nombre_archivo = None
+        if eliminar_imagen:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT nombre_archivo FROM codigos_barras WHERE id = ?",
+                    (codigo_id,)
+                )
+                resultado = cursor.fetchone()
+                if resultado:
+                    nombre_archivo = resultado[0]
+        
         # Crear backup automático antes de eliminar
         self.crear_backup_automatico(f"antes_eliminar_id_{codigo_id}")
         
@@ -305,6 +319,16 @@ class DatabaseManager:
             
             if filas_afectadas > 0:
                 logger.info(f"Código eliminado: ID {codigo_id}")
+                
+                # Eliminar imagen si existe y se solicitó
+                if eliminar_imagen and nombre_archivo:
+                    ruta_imagen = IMAGES_DIR / nombre_archivo
+                    if ruta_imagen.exists():
+                        try:
+                            ruta_imagen.unlink()
+                            logger.info(f"Imagen eliminada: {nombre_archivo}")
+                        except Exception as e:
+                            logger.warning(f"No se pudo eliminar la imagen {nombre_archivo}: {e}")
             
             return filas_afectadas > 0
     
@@ -399,11 +423,14 @@ class DatabaseManager:
                 "formatos_diferentes": resultado[1]
             }
     
-    def limpiar_base_datos(self) -> bool:
+    def limpiar_base_datos(self, eliminar_imagenes: bool = True) -> bool:
         """
         Elimina todos los códigos de la base de datos
         Crea backup automático antes de limpiar
         
+        Args:
+            eliminar_imagenes: Si True, elimina también todas las imágenes asociadas
+            
         Returns:
             True si se limpió correctamente, False en caso contrario
         """
@@ -418,9 +445,28 @@ class DatabaseManager:
             cursor = conn.cursor()
             
             try:
+                # Si se deben eliminar imágenes, obtener lista de archivos primero
+                archivos_a_eliminar = []
+                if eliminar_imagenes:
+                    cursor.execute("SELECT nombre_archivo FROM codigos_barras WHERE nombre_archivo IS NOT NULL")
+                    archivos_a_eliminar = [row[0] for row in cursor.fetchall() if row[0]]
+                
                 cursor.execute("DELETE FROM codigos_barras")
                 filas_eliminadas = cursor.rowcount
                 conn.commit()
+                
+                # Eliminar imágenes asociadas
+                if eliminar_imagenes and archivos_a_eliminar:
+                    eliminadas = 0
+                    for nombre_archivo in archivos_a_eliminar:
+                        ruta_imagen = IMAGES_DIR / nombre_archivo
+                        if ruta_imagen.exists():
+                            try:
+                                ruta_imagen.unlink()
+                                eliminadas += 1
+                            except Exception as e:
+                                logger.warning(f"No se pudo eliminar {nombre_archivo}: {e}")
+                    logger.info(f"Imágenes eliminadas: {eliminadas}/{len(archivos_a_eliminar)}")
                 
                 logger.info(f"Base de datos limpiada: {filas_eliminadas} registros eliminados")
                 return True
@@ -474,3 +520,50 @@ class DatabaseManager:
                 logger.error(f"Error al eliminar backup {backup.name}: {e}")
         
         return eliminados
+    
+    def obtener_archivos_imagenes_bd(self) -> set:
+        """
+        Obtiene el conjunto de nombres de archivos de imágenes que están en la BD
+        
+        Returns:
+            Set con los nombres de archivos de imágenes registradas en la BD
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT nombre_archivo FROM codigos_barras WHERE nombre_archivo IS NOT NULL")
+            return {row[0] for row in cursor.fetchall() if row[0]}
+    
+    def limpiar_imagenes_huerfanas(self) -> Tuple[int, int]:
+        """
+        Limpia imágenes huérfanas (imágenes que no tienen registro en la BD)
+        
+        Returns:
+            Tupla con (imagenes_eliminadas, errores)
+        """
+        if not IMAGES_DIR.exists():
+            return 0, 0
+        
+        # Obtener archivos de imágenes en la BD
+        archivos_bd = self.obtener_archivos_imagenes_bd()
+        
+        # Obtener todos los archivos PNG en el directorio
+        archivos_directorio = set(IMAGES_DIR.glob("*.png"))
+        nombres_archivos_directorio = {archivo.name for archivo in archivos_directorio}
+        
+        # Encontrar imágenes huérfanas (están en el directorio pero no en la BD)
+        imagenes_huerfanas = nombres_archivos_directorio - archivos_bd
+        
+        eliminadas = 0
+        errores = 0
+        
+        for nombre_archivo in imagenes_huerfanas:
+            ruta_imagen = IMAGES_DIR / nombre_archivo
+            try:
+                ruta_imagen.unlink()
+                eliminadas += 1
+                logger.info(f"Imagen huérfana eliminada: {nombre_archivo}")
+            except Exception as e:
+                errores += 1
+                logger.error(f"Error al eliminar imagen huérfana {nombre_archivo}: {e}")
+        
+        return eliminadas, errores
