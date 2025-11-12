@@ -353,7 +353,7 @@ class DatabaseManager:
                 WHERE codigo_barras LIKE ? 
                    OR id_unico LIKE ? 
                    OR nombre_empleado LIKE ? 
-                   OR descripcion LIKE ?
+                   OR descripcion LIKE ?  -- Código de empleado
                 ORDER BY fecha_creacion DESC
             """, (termino_busqueda, termino_busqueda, termino_busqueda, termino_busqueda))
             

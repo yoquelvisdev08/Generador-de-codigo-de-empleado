@@ -21,8 +21,17 @@ from src.controllers.carnet_controller import CarnetController
 class MainController:
     """Controlador principal que coordina modelos, servicios y vistas"""
     
-    def __init__(self):
-        """Inicializa el controlador y sus dependencias"""
+    def __init__(self, usuario: str = "admin", rol: str = "admin"):
+        """
+        Inicializa el controlador y sus dependencias
+        
+        Args:
+            usuario: Nombre del usuario autenticado
+            rol: Rol del usuario ('admin' o 'user')
+        """
+        self.usuario = usuario
+        self.rol = rol
+        
         self.db_manager = DatabaseManager()
         self.barcode_service = BarcodeService()
         self.export_service = ExportService()
@@ -30,6 +39,9 @@ class MainController:
         # Configurar formatos disponibles en el panel de generación
         formatos = self.barcode_service.obtener_formatos_disponibles()
         self.main_window = MainWindow(formatos_disponibles=formatos)
+        
+        # Configurar visibilidad de botones según el rol
+        self.main_window.list_panel.configurar_permisos(es_admin=(rol == "admin"))
         
         # Inicializar controlador de carnet (se inicializa cuando se muestra la vista)
         self.carnet_controller = None
@@ -72,13 +84,20 @@ class MainController:
         datos = self.main_window.generation_panel.obtener_datos()
         nombre_empleado = datos['nombre_empleado']
         formato = datos['formato']
-        descripcion = datos['descripcion']
+        codigo_empleado = datos['descripcion']  # Mantener nombre interno como 'descripcion' para compatibilidad con BD
         opciones_id = self.main_window.generation_panel.obtener_opciones_id()
         
         if not nombre_empleado:
             QMessageBox.warning(
                 self.main_window, "Advertencia",
                 "Por favor ingrese el nombre del empleado"
+            )
+            return
+        
+        if not codigo_empleado:
+            QMessageBox.warning(
+                self.main_window, "Advertencia",
+                "Por favor ingrese el código de empleado (campo obligatorio)"
             )
             return
         
@@ -113,7 +132,7 @@ class MainController:
             nombre_archivo = ruta_imagen.name
             
             exito = self.db_manager.insertar_codigo(
-                codigo_barras, id_unico_generado, formato, nombre_empleado, descripcion, nombre_archivo
+                codigo_barras, id_unico_generado, formato, nombre_empleado, codigo_empleado, nombre_archivo
             )
             
             if not exito:
@@ -131,6 +150,10 @@ class MainController:
             self.actualizar_estadisticas()
             self.actualizar_id_preview()
             self.main_window.generation_panel.limpiar_formulario()
+            
+            # Actualizar tabla de empleados en la vista de carnet si está activa
+            if self.carnet_controller is not None:
+                self.carnet_controller.refrescar_empleados()
             
             QMessageBox.information(
                 self.main_window, "Éxito",
@@ -402,6 +425,9 @@ class MainController:
                 controls_panel=self.main_window.carnet_panel.controls_panel,
                 employees_panel=self.main_window.carnet_panel.employees_panel
             )
+        else:
+            # Si ya está inicializado, refrescar la lista de empleados
+            self.carnet_controller.refrescar_empleados()
     
     def mostrar_vista_generacion(self):
         """Cambia a la vista de generación de códigos"""

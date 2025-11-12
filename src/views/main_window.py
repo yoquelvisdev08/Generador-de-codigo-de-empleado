@@ -75,16 +75,19 @@ class MainWindow(QMainWindow):
         
         self.crear_barra_estado()
         
-        # Centrar ventana después de que esté completamente inicializada
-        self._centrar_ventana()
+        # No centrar automáticamente - se centrará cuando se muestre
+        # self._centrar_ventana()
     
     def _centrar_ventana(self):
         """Centra la ventana en la pantalla"""
         from PyQt6.QtWidgets import QApplication
-        screen = QApplication.primaryScreen().geometry()
+        app = QApplication.instance()
+        if app is None:
+            return
+        screen = app.primaryScreen().geometry()
         size = self.frameGeometry()
-        x = (screen.width() - size.width()) // 2
-        y = (screen.height() - size.height()) // 2
+        x = max(0, (screen.width() - size.width()) // 2)
+        y = max(0, (screen.height() - size.height()) // 2)
         self.move(x, y)
     
     def crear_barra_estado(self):

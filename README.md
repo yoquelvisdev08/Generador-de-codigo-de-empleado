@@ -6,15 +6,18 @@ Aplicación de escritorio con interfaz gráfica para generar códigos de barras 
 
 ## Características
 
-- Generación de códigos de barras en múltiples formatos (Code128, EAN13, EAN8, Code39)
-- Asignación automática de ID único (UUID) a cada código generado
-- Base de datos local SQLite para almacenamiento persistente
-- Verificación de duplicados antes de generar nuevos códigos
-- Interfaz gráfica moderna y profesional con PyQt6
-- Vista previa de códigos generados
-- Búsqueda y filtrado de códigos existentes
-- Exportación de imágenes de códigos de barras
-- Gestión completa de códigos (crear, ver, eliminar)
+- **Sistema de autenticación**: Login con usuario y contraseña, soporte para roles (admin/user)
+- **Generación de códigos de barras**: Múltiples formatos (Code128, EAN13, EAN8, Code39)
+- **ID personalizado**: Configuración de tipo de caracteres, longitud e inclusión de nombre
+- **Base de datos local SQLite**: Almacenamiento persistente con backups automáticos
+- **Verificación de duplicados**: Antes de generar nuevos códigos
+- **Interfaz gráfica moderna**: Diseño profesional con PyQt6
+- **Vista previa en tiempo real**: Actualización automática del ID mientras configura opciones
+- **Búsqueda y filtrado**: Búsqueda avanzada de códigos existentes
+- **Exportación**: Exportación individual o masiva de imágenes
+- **Editor de Carnets**: Diseño de carnets de identificación con templates HTML
+- **Gestión completa**: Crear, ver, eliminar códigos y gestionar imágenes
+- **Control de permisos**: Los administradores tienen acceso a funciones adicionales
 
 ## Requisitos del Sistema
 
@@ -84,18 +87,34 @@ Las dependencias incluyen:
 python main.py
 ```
 
+O usando el script de ejecución (recomendado):
+
+```bash
+./run.sh
+```
+
 **Nota:** Asegúrese de tener el entorno virtual activado antes de ejecutar la aplicación. Verá `(env)` al inicio de su línea de comandos cuando esté activado.
+
+**Al iniciar la aplicación:**
+1. Se mostrará una ventana de login
+2. Ingrese su usuario y contraseña configurados en el archivo `.env`
+3. Después del login exitoso, se abrirá la ventana principal de la aplicación
 
 **En macOS:** Si obtiene un error relacionado con `zbar`, asegúrese de haber instalado `zbar` con Homebrew (ver requisitos adicionales arriba) y de que el entorno virtual esté activado correctamente. El script de activación configura automáticamente las variables de entorno necesarias.
 
 ### Generar un código de barras
 
 1. Ingrese el nombre del empleado en el campo "Nombre del Empleado"
-2. Seleccione el formato deseado (Code128, EAN13, EAN8, Code39)
-3. Opcionalmente, agregue una descripción
-4. Haga clic en "Generar Código de Barras"
+2. Ingrese el código de empleado en el campo "Código de Empleado" (campo obligatorio)
+3. Seleccione el formato deseado (Code128, EAN13, EAN8, Code39)
+4. Configure las opciones de generación de ID:
+   - Tipo de caracteres: Alfanumérico, Numérico, o Solo Letras
+   - Cantidad de caracteres (por defecto: 10)
+   - Opcionalmente, incluya el nombre del empleado en el código
+5. El ID se generará automáticamente y se mostrará en tiempo real en la vista previa
+6. Haga clic en "Generar Código de Barras"
 
-El sistema generará automáticamente un ID único aleatorio (alfanumérico de 6 caracteres) que se codificará en el código de barras. El ID aparecerá debajo del código y es el valor que se leerá al escanearlo.
+El sistema generará automáticamente un ID único personalizado según las opciones seleccionadas. El ID aparecerá debajo del código y es el valor que se leerá al escanearlo.
 
 ### Formatos de Código de Barras
 
@@ -106,13 +125,15 @@ El sistema generará automáticamente un ID único aleatorio (alfanumérico de 6
 
 ### Funcionalidades Adicionales
 
-- **Búsqueda**: Use el campo de búsqueda para filtrar códigos por código de barras, ID único, nombre de empleado o descripción
-- **Vista Previa**: Haga doble clic en una fila de la tabla o use el botón "Ver Imagen" para ver la imagen del código
+- **Búsqueda**: Use el campo de búsqueda para filtrar códigos por código de barras, ID único, nombre de empleado o código de empleado
+- **Vista Previa**: Al seleccionar un código en la tabla, la imagen se muestra automáticamente en el panel de generación
 - **Exportar Seleccionados**: Seleccione múltiples códigos (Ctrl+clic o Shift+clic) y exporte las imágenes a una carpeta. Los archivos se nombran como: `nombre_empleado_codigo_barras.png`
 - **Exportar Todos (ZIP)**: Exporta todos los códigos en un archivo ZIP con el mismo formato de nombres
-- **Backup BD**: Crea un backup de la base de datos con timestamp
+- **Crear Carnet**: Botón para acceder al editor de carnets de identificación
+- **Backup BD** (Solo Admin): Crea un backup de la base de datos con timestamp
 - **Eliminar**: Seleccione un código y haga clic en "Eliminar" para removerlo de la base de datos
-- **Limpiar Base de Datos**: Elimina todos los códigos de la base de datos (acción irreversible)
+- **Limpiar Base de Datos** (Solo Admin): Elimina todos los códigos de la base de datos (acción irreversible)
+- **Limpiar Imágenes Huérfanas** (Solo Admin): Elimina imágenes que no tienen registro en la base de datos
 
 ## Arquitectura del Proyecto
 
@@ -137,42 +158,58 @@ Generador-de-codigo-de-empleado/
 │   ├── models/               # Capa de datos (Model)
 │   │   ├── __init__.py
 │   │   ├── database.py       # Gestor de base de datos SQLite
-│   │   └── barcode_model.py  # Modelo de datos para códigos
+│   │   ├── barcode_model.py  # Modelo de datos para códigos
+│   │   ├── html_template.py  # Modelo de templates HTML
+│   │   └── carnet_template.py # Modelo de templates de carnet
 │   │
 │   ├── services/             # Lógica de negocio
 │   │   ├── __init__.py
 │   │   ├── barcode_service.py    # Generación y validación de códigos
-│   │   └── export_service.py     # Exportación de códigos
+│   │   ├── export_service.py     # Exportación de códigos
+│   │   ├── html_renderer.py      # Renderizado de templates HTML
+│   │   └── carnet_designer.py    # Diseño de carnets (PIL)
 │   │
 │   ├── views/                # Capa de presentación (View)
 │   │   ├── __init__.py
 │   │   ├── main_window.py    # Ventana principal
+│   │   ├── login_window.py   # Ventana de login
+│   │   ├── carnet_window.py  # Panel de creación de carnets
 │   │   └── widgets/          # Widgets reutilizables
 │   │       ├── __init__.py
-│   │       ├── generation_panel.py  # Panel de generación
-│   │       └── list_panel.py        # Panel de listado
+│   │       ├── generation_panel.py      # Panel de generación
+│   │       ├── list_panel.py            # Panel de listado
+│   │       ├── carnet_preview_panel.py  # Vista previa de carnet
+│   │       ├── carnet_controls_panel.py # Controles de diseño de carnet
+│   │       └── carnet_employees_panel.py # Lista de empleados para carnet
 │   │
 │   ├── controllers/          # Controladores (Presenter)
 │   │   ├── __init__.py
-│   │   └── main_controller.py  # Controlador principal
+│   │   ├── main_controller.py  # Controlador principal
+│   │   └── carnet_controller.py # Controlador de carnets
 │   │
 │   └── utils/               # Utilidades
 │       ├── __init__.py
 │       ├── file_utils.py     # Utilidades de archivos
-│       └── constants.py      # Constantes
+│       ├── auth_utils.py     # Utilidades de autenticación
+│       ├── id_generator.py   # Generador de IDs personalizados
+│       ├── html_parser.py    # Parser de templates HTML
+│       └── template_generator.py # Generador de templates HTML
 │
 ├── config/                   # Configuración
 │   ├── __init__.py
 │   └── settings.py           # Configuración centralizada
 │
-├── .env                      # Variables de entorno (contraseña de admin)
+├── .env                      # Variables de entorno (usuarios y contraseñas)
 ├── .env.example              # Ejemplo de archivo de configuración
 ├── .gitignore                # Archivos ignorados por Git
+├── run.sh                    # Script de ejecución (usa entorno virtual)
 │
 ├── data/                     # Datos de la aplicación
 │   ├── codigos_barras.db    # Base de datos SQLite (se crea automáticamente)
 │   ├── codigos_generados/   # Directorio con imágenes (se crea automáticamente)
-│   └── backups/             # Backups automáticos de la base de datos
+│   ├── backups/             # Backups automáticos de la base de datos
+│   ├── carnets/             # Carnets generados (se crea automáticamente)
+│   └── templates_carnet/    # Templates HTML para diseño de carnets
 │
 ├── tests/                    # Pruebas unitarias (estructura preparada)
 │   └── __init__.py
@@ -193,8 +230,9 @@ La aplicación utiliza SQLite como base de datos local. El archivo `codigos_barr
 - `id_unico`: ID único aleatorio alfanumérico (mismo que codigo_barras)
 - `fecha_creacion`: Timestamp de creación
 - `nombre_empleado`: Nombre del empleado asociado al código
-- `descripcion`: Descripción opcional del código
+- `descripcion`: Código de empleado (campo obligatorio)
 - `formato`: Formato del código de barras utilizado (Code128, EAN13, EAN8, Code39)
+- `nombre_archivo`: Nombre del archivo de imagen generado
 
 ## Notas Técnicas
 
@@ -267,34 +305,57 @@ Este error ocurre cuando `pyzbar` no puede encontrar la librería `zbar`. Soluci
 
 ## Seguridad y Autenticación
 
-La aplicación incluye un sistema de autenticación para proteger acciones críticas como eliminar códigos o limpiar la base de datos.
+La aplicación incluye un sistema completo de autenticación con roles de usuario. Al iniciar la aplicación, se mostrará una ventana de login donde debe ingresar sus credenciales.
 
-### Configuración de Contraseña
+### Configuración de Usuarios
 
 1. **Archivo `.env`**: Cree un archivo `.env` en la raíz del proyecto (puede copiar `.env.example`):
    ```bash
    cp .env.example .env
    ```
 
-2. **Configurar contraseña**: Edite el archivo `.env` y cambie la contraseña por defecto:
+2. **Configurar usuarios**: Edite el archivo `.env` y configure los usuarios administradores y regulares:
    ```env
-   ADMIN_PASSWORD=tu_contraseña_segura_aqui
+   # Administradores del sistema
+   # Formato: usuario:contraseña
+   ADMIN_USERS=admin:admin123,supervisor:super123
+   
+   # Usuarios del sistema
+   # Formato: usuario:contraseña
+   REGULAR_USERS=usuario:user123,empleado:emp123
    ```
 
 3. **Importante**: 
    - El archivo `.env` está en `.gitignore` y no se subirá al repositorio
-   - Cambie la contraseña por defecto (`admin123`) en producción
-   - Use una contraseña segura para proteger sus datos
+   - Cambie las contraseñas por defecto en producción
+   - Use contraseñas seguras para proteger sus datos
+   - Puede agregar múltiples usuarios separados por comas en cada variable
 
-### Acciones Protegidas
+### Roles de Usuario
 
-Las siguientes acciones requieren autenticación:
-- **Eliminar código**: Se solicita contraseña antes de eliminar un código individual
-- **Limpiar base de datos**: Se solicita contraseña antes de eliminar todos los códigos
+La aplicación soporta dos roles:
 
-### Diálogo de Autenticación
+- **Administrador (`admin`)**: Tiene acceso completo a todas las funcionalidades, incluyendo:
+  - Backup de base de datos
+  - Limpiar base de datos
+  - Limpiar imágenes huérfanas
+  - Todas las funciones de usuario regular
 
-Cuando intente realizar una acción protegida, aparecerá un diálogo solicitando la contraseña de administrador. Si la contraseña es incorrecta, se mostrará un mensaje de error y podrá intentar nuevamente.
+- **Usuario (`user`)**: Tiene acceso a las funcionalidades básicas:
+  - Generar códigos de barras
+  - Ver y buscar códigos
+  - Exportar códigos
+  - Crear carnets
+  - **NO** tiene acceso a funciones de administración
+
+### Ventana de Login
+
+Al iniciar la aplicación, se mostrará una ventana de login moderna donde debe:
+1. Ingresar su nombre de usuario
+2. Ingresar su contraseña
+3. Hacer clic en "Ingresar" o presionar Enter
+
+Si las credenciales son incorrectas, se mostrará un mensaje de error. La aplicación se cerrará si cierra la ventana de login sin autenticarse.
 
 ## Backup Automático
 

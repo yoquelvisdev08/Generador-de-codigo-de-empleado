@@ -29,7 +29,8 @@ class ExportService:
         Exporta códigos seleccionados a un directorio
         
         Args:
-            codigos: Lista de tuplas con (id_db, codigo_barras, id_unico, formato, nombre_empleado)
+            codigos: Lista de tuplas con (id_db, codigo_barras, id_unico, formato, nombre_empleado, nombre_archivo)
+                     o (id_db, codigo_barras, id_unico, formato, nombre_empleado) para compatibilidad
             directorio_destino: Directorio donde se exportarán los archivos
             
         Returns:
@@ -38,12 +39,24 @@ class ExportService:
         exportados = 0
         errores = 0
         
-        for id_db, codigo_barras, id_unico, formato, nombre_empleado in codigos:
-            ruta_imagen = obtener_ruta_imagen(
-                nombre_empleado or "sin_nombre",
-                codigo_barras,
-                self.directorio_imagenes
-            )
+        for codigo in codigos:
+            # Compatibilidad con formato anterior (5 elementos) y nuevo (6 elementos)
+            if len(codigo) >= 6:
+                id_db, codigo_barras, id_unico, formato, nombre_empleado, nombre_archivo = codigo[:6]
+            else:
+                id_db, codigo_barras, id_unico, formato, nombre_empleado = codigo[:5]
+                nombre_archivo = None
+            
+            # Si tenemos nombre_archivo, usarlo directamente
+            if nombre_archivo:
+                ruta_imagen = self.directorio_imagenes / nombre_archivo
+            else:
+                # Fallback: generar ruta como antes
+                ruta_imagen = obtener_ruta_imagen(
+                    nombre_empleado or "sin_nombre",
+                    codigo_barras,
+                    self.directorio_imagenes
+                )
             
             if not ruta_imagen.exists():
                 errores += 1

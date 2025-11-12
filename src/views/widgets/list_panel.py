@@ -35,7 +35,7 @@ class ListPanel(QWidget):
         layout_busqueda.addWidget(label_busqueda)
         
         self.campo_busqueda = QLineEdit()
-        self.campo_busqueda.setPlaceholderText("Buscar por código, ID único o descripción...")
+        self.campo_busqueda.setPlaceholderText("Buscar por código, ID único o código de empleado...")
         layout_busqueda.addWidget(self.campo_busqueda)
         
         self.boton_refrescar = QPushButton("Refrescar")
@@ -48,10 +48,10 @@ class ListPanel(QWidget):
         grupo_listado.setLayout(layout_listado)
         
         self.tabla_codigos = QTableWidget()
-        self.tabla_codigos.setColumnCount(7)
+        self.tabla_codigos.setColumnCount(8)
         self.tabla_codigos.setHorizontalHeaderLabels([
             "ID", "Código de Barras", "ID Único", "Formato",
-            "Nombre del Empleado", "Descripción", "Fecha"
+            "Nombre del Empleado", "Código de Empleado", "Fecha", "Archivo"
         ])
         # Hacer la tabla responsive: algunas columnas fijas, otras estirables
         header = self.tabla_codigos.horizontalHeader()
@@ -60,8 +60,9 @@ class ListPanel(QWidget):
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)  # ID Único: estirable
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)  # Formato: tamaño contenido
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)  # Nombre: estirable
-        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)  # Descripción: estirable
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)  # Código de Empleado: estirable
         header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)  # Fecha: tamaño contenido
+        header.setSectionResizeMode(7, QHeaderView.ResizeMode.ResizeToContents)  # Archivo: tamaño contenido
         self.tabla_codigos.setSelectionBehavior(
             QTableWidget.SelectionBehavior.SelectRows
         )
@@ -105,6 +106,10 @@ class ListPanel(QWidget):
         layout_listado.addLayout(layout_botones)
         
         layout.addWidget(grupo_listado)
+        
+        # Por defecto, los botones de admin están visibles
+        # Se ocultarán si el usuario no es admin mediante configurar_permisos
+        self.es_admin = True
     
     def cargar_codigos(self, codigos: list):
         """
@@ -119,7 +124,9 @@ class ListPanel(QWidget):
             if len(codigo) == 8:
                 id_db, codigo_barras, id_unico, fecha, nombre_empleado, descripcion, formato, nombre_archivo = codigo
             else:
+                # Compatibilidad con formato anterior (sin nombre_archivo)
                 id_db, codigo_barras, id_unico, fecha, nombre_empleado, descripcion, formato = codigo
+                nombre_archivo = ""
             
             self.tabla_codigos.setItem(fila, 0, QTableWidgetItem(str(id_db)))
             self.tabla_codigos.setItem(fila, 1, QTableWidgetItem(codigo_barras))
@@ -128,6 +135,7 @@ class ListPanel(QWidget):
             self.tabla_codigos.setItem(fila, 4, QTableWidgetItem(nombre_empleado or ""))
             self.tabla_codigos.setItem(fila, 5, QTableWidgetItem(descripcion or ""))
             self.tabla_codigos.setItem(fila, 6, QTableWidgetItem(fecha))
+            self.tabla_codigos.setItem(fila, 7, QTableWidgetItem(nombre_archivo or ""))
     
     def obtener_fila_seleccionada(self):
         """
@@ -144,11 +152,14 @@ class ListPanel(QWidget):
         codigo_barras = self.tabla_codigos.item(fila, 1).text()
         id_unico = self.tabla_codigos.item(fila, 2).text()
         formato = self.tabla_codigos.item(fila, 3).text()
-        nombre_empleado = self.tabla_codigos.item(fila, 4).text()
+        nombre_archivo = self.tabla_codigos.item(fila, 7).text()  # Obtener nombre_archivo de la columna
         
-        from src.utils.file_utils import limpiar_nombre_archivo
-        nombre_empleado_limpio = limpiar_nombre_archivo(nombre_empleado or "sin_nombre")
-        nombre_archivo = f"{nombre_empleado_limpio}_{codigo_barras}.png"
+        # Si no hay nombre_archivo en la tabla, generar uno como fallback
+        if not nombre_archivo:
+            nombre_empleado = self.tabla_codigos.item(fila, 4).text()
+            from src.utils.file_utils import limpiar_nombre_archivo
+            nombre_empleado_limpio = limpiar_nombre_archivo(nombre_empleado or "sin_nombre")
+            nombre_archivo = f"{nombre_empleado_limpio}_{codigo_barras}.png"
         
         return id_db, codigo_barras, id_unico, formato, nombre_archivo
     
@@ -174,7 +185,8 @@ class ListPanel(QWidget):
             id_unico = self.tabla_codigos.item(fila, 2).text()
             formato = self.tabla_codigos.item(fila, 3).text()
             nombre_empleado = self.tabla_codigos.item(fila, 4).text()
-            resultados.append((id_db, codigo_barras, id_unico, formato, nombre_empleado))
+            nombre_archivo = self.tabla_codigos.item(fila, 7).text() if self.tabla_codigos.item(fila, 7) else ""
+            resultados.append((id_db, codigo_barras, id_unico, formato, nombre_empleado, nombre_archivo))
         
         return resultados
     
@@ -186,4 +198,21 @@ class ListPanel(QWidget):
             Término de búsqueda
         """
         return self.campo_busqueda.text().strip()
+    
+    def configurar_permisos(self, es_admin: bool = True):
+        """
+        Configura la visibilidad de los botones según los permisos del usuario
+        
+        Args:
+            es_admin: Si True, muestra los botones de administración. Si False, los oculta.
+        """
+        self.es_admin = es_admin
+        
+        # Botones que solo los administradores pueden ver
+        # - Backup BD
+        # - Limpiar Base de Datos
+        # - Limpiar Imágenes Huérfanas
+        self.boton_backup.setVisible(es_admin)
+        self.boton_limpiar.setVisible(es_admin)
+        self.boton_limpiar_imagenes.setVisible(es_admin)
 

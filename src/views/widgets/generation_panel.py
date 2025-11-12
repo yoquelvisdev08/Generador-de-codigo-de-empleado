@@ -100,11 +100,15 @@ class GenerationPanel(QWidget):
         )
         layout_grupo.addWidget(self.label_id_generado)
         
-        label_descripcion = QLabel("Descripción (opcional):")
-        layout_grupo.addWidget(label_descripcion)
+        label_codigo_empleado = QLabel("Código de Empleado: *")
+        label_codigo_empleado.setStyleSheet("font-weight: bold; color: #dc3545;")
+        layout_grupo.addWidget(label_codigo_empleado)
         
         self.campo_descripcion = QLineEdit()
-        self.campo_descripcion.setPlaceholderText("Descripción del código")
+        self.campo_descripcion.setPlaceholderText("Ingrese el código de empleado (obligatorio)")
+        self.campo_descripcion.setStyleSheet("border: 2px solid #dc3545;")  # Borde rojo para indicar obligatorio
+        # Conectar señal para cambiar estilo cuando se ingrese texto
+        self.campo_descripcion.textChanged.connect(self._validar_campo_codigo_empleado)
         layout_grupo.addWidget(self.campo_descripcion)
         
         self.boton_generar = QPushButton("Generar Código de Barras")
@@ -153,7 +157,7 @@ class GenerationPanel(QWidget):
         return {
             'nombre_empleado': self.campo_nombre_empleado.text().strip(),
             'formato': self.combo_formato.currentText(),
-            'descripcion': self.campo_descripcion.text().strip() or None,
+            'descripcion': self.campo_descripcion.text().strip(),  # Código de empleado (obligatorio)
             'tipo_caracteres': tipo_caracteres,
             'cantidad_caracteres': self.spin_cantidad.value(),
             'incluir_nombre': self.check_incluir_nombre.isChecked()
@@ -178,6 +182,8 @@ class GenerationPanel(QWidget):
         """Limpia los campos del formulario"""
         self.campo_nombre_empleado.clear()
         self.campo_descripcion.clear()
+        # Restaurar estilo del campo de código de empleado
+        self.campo_descripcion.setStyleSheet("border: 2px solid #dc3545;")
     
     def actualizar_id_preview(self, siguiente_id: str):
         """
@@ -187,6 +193,16 @@ class GenerationPanel(QWidget):
             siguiente_id: ID que se generará
         """
         self.label_id_generado.setText(f"ID que se generará: {siguiente_id}")
+    
+    def _validar_campo_codigo_empleado(self):
+        """Valida y actualiza el estilo del campo de código de empleado"""
+        texto = self.campo_descripcion.text().strip()
+        if texto:
+            # Si tiene texto, cambiar a borde verde
+            self.campo_descripcion.setStyleSheet("border: 2px solid #28a745;")
+        else:
+            # Si está vacío, mantener borde rojo
+            self.campo_descripcion.setStyleSheet("border: 2px solid #dc3545;")
     
     def conectar_senales_actualizacion(self, callback):
         """

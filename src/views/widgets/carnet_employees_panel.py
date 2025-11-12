@@ -40,20 +40,21 @@ class CarnetEmployeesPanel(QWidget):
         layout_busqueda.addWidget(self.campo_busqueda)
         layout_lista.addLayout(layout_busqueda)
         
-        # Tabla de empleados
+        # Tabla de empleados con scroll
         self.tabla_empleados = QTableWidget()
-        self.tabla_empleados.setColumnCount(6)
+        self.tabla_empleados.setColumnCount(7)
         self.tabla_empleados.setHorizontalHeaderLabels([
-            "ID", "Nombre del Empleado", "ID Único", "Código de Barras", "Formato", "Archivo"
+            "ID", "Nombre del Empleado", "Código de Empleado", "ID Único", "Código de Barras", "Formato", "Archivo"
         ])
         # Hacer la tabla responsive
         header = self.tabla_empleados.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)  # ID: tamaño contenido
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Nombre: estirable
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)  # ID Único: estirable
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)  # Código: estirable
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)  # Formato: tamaño contenido
-        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)  # Archivo: tamaño contenido
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)  # Código de Empleado: estirable
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)  # ID Único: estirable
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)  # Código de Barras: estirable
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)  # Formato: tamaño contenido
+        header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)  # Archivo: tamaño contenido
         self.tabla_empleados.setSelectionBehavior(
             QTableWidget.SelectionBehavior.SelectRows
         )
@@ -63,6 +64,11 @@ class CarnetEmployeesPanel(QWidget):
         self.tabla_empleados.setEditTriggers(
             QTableWidget.EditTrigger.NoEditTriggers
         )
+        # Habilitar scroll vertical y horizontal
+        self.tabla_empleados.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.tabla_empleados.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        # Permitir que la tabla muestre todas las filas con scroll
+        self.tabla_empleados.setAlternatingRowColors(True)  # Colores alternados para mejor legibilidad
         layout_lista.addWidget(self.tabla_empleados)
         
         layout.addWidget(grupo_lista)
@@ -113,23 +119,25 @@ class CarnetEmployeesPanel(QWidget):
                 formato = empleado[6] or ""
                 nombre_archivo = empleado[7] or ""
                 
-                # Mapear a las columnas de la tabla: ID, Nombre, ID Único, Código de Barras, Formato, Archivo
+                # Mapear a las columnas de la tabla: ID, Nombre, Código de Empleado, ID Único, Código de Barras, Formato, Archivo
                 self.tabla_empleados.setItem(fila, 0, QTableWidgetItem(str(id_db)))
                 self.tabla_empleados.setItem(fila, 1, QTableWidgetItem(nombre_empleado))
-                self.tabla_empleados.setItem(fila, 2, QTableWidgetItem(id_unico))
-                self.tabla_empleados.setItem(fila, 3, QTableWidgetItem(codigo_barras))
-                self.tabla_empleados.setItem(fila, 4, QTableWidgetItem(formato))
-                self.tabla_empleados.setItem(fila, 5, QTableWidgetItem(nombre_archivo))
+                self.tabla_empleados.setItem(fila, 2, QTableWidgetItem(descripcion))  # Código de Empleado
+                self.tabla_empleados.setItem(fila, 3, QTableWidgetItem(id_unico))
+                self.tabla_empleados.setItem(fila, 4, QTableWidgetItem(codigo_barras))
+                self.tabla_empleados.setItem(fila, 5, QTableWidgetItem(formato))
+                self.tabla_empleados.setItem(fila, 6, QTableWidgetItem(nombre_archivo))
             elif len(empleado) >= 6:
                 # Compatibilidad con formato anterior
                 id_db, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo = empleado[:6]
                 
                 self.tabla_empleados.setItem(fila, 0, QTableWidgetItem(str(id_db)))
                 self.tabla_empleados.setItem(fila, 1, QTableWidgetItem(nombre_empleado or ""))
-                self.tabla_empleados.setItem(fila, 2, QTableWidgetItem(id_unico or ""))
-                self.tabla_empleados.setItem(fila, 3, QTableWidgetItem(codigo_barras or ""))
-                self.tabla_empleados.setItem(fila, 4, QTableWidgetItem(formato or ""))
-                self.tabla_empleados.setItem(fila, 5, QTableWidgetItem(nombre_archivo or ""))
+                self.tabla_empleados.setItem(fila, 2, QTableWidgetItem(""))  # Código de Empleado (vacío si no está disponible)
+                self.tabla_empleados.setItem(fila, 3, QTableWidgetItem(id_unico or ""))
+                self.tabla_empleados.setItem(fila, 4, QTableWidgetItem(codigo_barras or ""))
+                self.tabla_empleados.setItem(fila, 5, QTableWidgetItem(formato or ""))
+                self.tabla_empleados.setItem(fila, 6, QTableWidgetItem(nombre_archivo or ""))
     
     def obtener_empleado_seleccionado(self):
         """
@@ -144,10 +152,11 @@ class CarnetEmployeesPanel(QWidget):
         
         id_db = int(self.tabla_empleados.item(fila, 0).text())
         nombre_empleado = self.tabla_empleados.item(fila, 1).text()
-        id_unico = self.tabla_empleados.item(fila, 2).text()
-        codigo_barras = self.tabla_empleados.item(fila, 3).text()
-        formato = self.tabla_empleados.item(fila, 4).text()
-        nombre_archivo = self.tabla_empleados.item(fila, 5).text()
+        codigo_empleado = self.tabla_empleados.item(fila, 2).text()  # Código de Empleado
+        id_unico = self.tabla_empleados.item(fila, 3).text()
+        codigo_barras = self.tabla_empleados.item(fila, 4).text()
+        formato = self.tabla_empleados.item(fila, 5).text()
+        nombre_archivo = self.tabla_empleados.item(fila, 6).text()
         
         return id_db, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo
     
@@ -170,10 +179,11 @@ class CarnetEmployeesPanel(QWidget):
         for fila in filas_unicas:
             id_db = int(self.tabla_empleados.item(fila, 0).text())
             nombre_empleado = self.tabla_empleados.item(fila, 1).text()
-            id_unico = self.tabla_empleados.item(fila, 2).text()
-            codigo_barras = self.tabla_empleados.item(fila, 3).text()
-            formato = self.tabla_empleados.item(fila, 4).text()
-            nombre_archivo = self.tabla_empleados.item(fila, 5).text()
+            codigo_empleado = self.tabla_empleados.item(fila, 2).text()  # Código de Empleado
+            id_unico = self.tabla_empleados.item(fila, 3).text()
+            codigo_barras = self.tabla_empleados.item(fila, 4).text()
+            formato = self.tabla_empleados.item(fila, 5).text()
+            nombre_archivo = self.tabla_empleados.item(fila, 6).text()
             
             resultados.append((id_db, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo))
         

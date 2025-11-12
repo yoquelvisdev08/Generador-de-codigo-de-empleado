@@ -54,9 +54,80 @@ BARCODE_IMAGE_OPTIONS = {
 # Caracteres inválidos para nombres de archivo
 INVALID_FILENAME_CHARS = ['/', '\\', ':', '*', '?', '"', '<', '>', '|']
 
-# Configuración de seguridad
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
-# Si no hay contraseña configurada, usar una por defecto (se recomienda cambiar)
-if not ADMIN_PASSWORD:
-    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD_DEFAULT", "admin123")
+# Configuración de seguridad y usuarios
+def cargar_usuarios():
+    """
+    Carga los usuarios desde las variables de entorno ADMIN_USERS y REGULAR_USERS
+    Formato ADMIN_USERS: usuario:contraseña,usuario2:contraseña2
+    Formato REGULAR_USERS: usuario:contraseña,usuario2:contraseña2
+    
+    Returns:
+        dict: Diccionario con {usuario: {'password': str, 'rol': str}}
+    """
+    usuarios = {}
+    
+    # Cargar administradores
+    admin_users_str = os.getenv("ADMIN_USERS", "")
+    if admin_users_str:
+        for usuario_info in admin_users_str.split(","):
+            usuario_info = usuario_info.strip()
+            if not usuario_info:
+                continue
+            
+            partes = usuario_info.split(":")
+            if len(partes) == 2:
+                usuario, password = partes
+                usuarios[usuario.strip()] = {
+                    "password": password.strip(),
+                    "rol": "admin"
+                }
+    
+    # Cargar usuarios regulares
+    regular_users_str = os.getenv("REGULAR_USERS", "")
+    if regular_users_str:
+        for usuario_info in regular_users_str.split(","):
+            usuario_info = usuario_info.strip()
+            if not usuario_info:
+                continue
+            
+            partes = usuario_info.split(":")
+            if len(partes) == 2:
+                usuario, password = partes
+                usuarios[usuario.strip()] = {
+                    "password": password.strip(),
+                    "rol": "user"
+                }
+    
+    # Si no se cargaron usuarios, crear un usuario admin por defecto
+    if not usuarios:
+        usuarios = {
+            "admin": {
+                "password": os.getenv("ADMIN_PASSWORD", "admin123"),
+                "rol": "admin"
+            }
+        }
+    
+    return usuarios
+
+USUARIOS = cargar_usuarios()
+
+def autenticar_usuario(usuario: str, password: str) -> tuple[bool, str]:
+    """
+    Autentica un usuario y retorna su rol si es válido
+    
+    Args:
+        usuario: Nombre de usuario
+        password: Contraseña
+        
+    Returns:
+        tuple: (es_valido: bool, rol: str)
+        Si es_valido es False, rol será una cadena vacía
+    """
+    if usuario in USUARIOS:
+        if USUARIOS[usuario]["password"] == password:
+            return True, USUARIOS[usuario]["rol"]
+    return False, ""
+
+# Mantener compatibilidad con código antiguo
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
 

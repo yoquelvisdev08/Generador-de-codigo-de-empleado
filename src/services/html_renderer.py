@@ -56,22 +56,26 @@ class HTMLRenderer(QObject):
                 logger.error("No hay instancia de QApplication")
                 return None
             
-            # Crear un widget padre invisible para el QWebEngineView
+            # Crear un widget padre fuera de pantalla (visible pero fuera de la vista)
+            # QWebEngineView necesita ser visible para renderizar correctamente
             parent_widget = QWidget()
             parent_widget.setFixedSize(ancho, alto)
-            parent_widget.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
-            parent_widget.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+            # Mover fuera de la pantalla en lugar de usar WA_DontShowOnScreen
+            parent_widget.move(-10000, -10000)  # Fuera de la vista
+            parent_widget.show()  # Hacer visible para que renderice
             
             # Crear QWebEngineView como hijo del widget padre
             web_view = QWebEngineView(parent_widget)
             web_view.setFixedSize(ancho, alto)
-            web_view.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
-            web_view.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+            web_view.show()  # Hacer visible para que renderice
             
             # Configurar para renderizado de alta calidad
             settings = web_view.settings()
             settings.setAttribute(settings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
             settings.setAttribute(settings.WebAttribute.JavascriptEnabled, True)
+            
+            # Procesar eventos para que se muestre
+            QApplication.processEvents()
             
             # Cargar HTML
             logger.info(f"Cargando HTML en QWebEngineView (tamaño: {ancho}x{alto})")
@@ -112,26 +116,67 @@ class HTMLRenderer(QObject):
                 return None
             
             # Esperar un poco más para que se renderice completamente
-            # Usar un segundo loop para esperar el renderizado
-            loop2 = QEventLoop()
-            timer2 = QTimer()
-            timer2.timeout.connect(loop2.quit)
-            timer2.setSingleShot(True)
-            timer2.start(2000)  # Esperar 2 segundos para renderizado
-            loop2.exec()
+            # Usar múltiples loops para asegurar renderizado completo
+            for i in range(3):  # 3 intentos de espera
+                loop2 = QEventLoop()
+                timer2 = QTimer()
+                timer2.timeout.connect(loop2.quit)
+                timer2.setSingleShot(True)
+                timer2.start(1000)  # Esperar 1 segundo por intento
+                loop2.exec()
+                
+                # Procesar eventos entre cada espera
+                QApplication.processEvents()
             
-            # Procesar eventos finales
+            # Procesar eventos finales múltiples veces
+            for _ in range(10):
+                QApplication.processEvents()
+            
+            # Asegurar que el widget esté completamente renderizado
+            web_view.update()
             QApplication.processEvents()
             
             # Renderizar a imagen
             logger.info("Capturando imagen del QWebEngineView...")
+            
+            # Verificar que el widget esté visible y tenga contenido
+            if not web_view.isVisible():
+                logger.warning("QWebEngineView no está visible, intentando mostrar...")
+                web_view.show()
+                QApplication.processEvents()
+            
+            # Intentar capturar la imagen
             imagen = web_view.grab()
             
             if imagen.isNull():
                 logger.error("No se pudo capturar la imagen del QWebEngineView (QPixmap es nulo)")
-                return None
+                # Intentar una segunda vez después de más procesamiento
+                QApplication.processEvents()
+                QTimer.singleShot(500, lambda: None)  # Esperar 500ms más
+                QApplication.processEvents()
+                imagen = web_view.grab()
+                
+                if imagen.isNull():
+                    logger.error("Segundo intento falló también")
+                    return None
             
             logger.info(f"Imagen capturada (antes de escalar): {imagen.width()}x{imagen.height()}")
+            
+            # Verificar que la imagen no esté completamente en blanco
+            qimage_temp = imagen.toImage()
+            if not qimage_temp.isNull():
+                # Verificar algunos píxeles para asegurar que no esté en blanco
+                sample_pixels = [
+                    qimage_temp.pixelColor(0, 0),
+                    qimage_temp.pixelColor(ancho // 2, alto // 2),
+                    qimage_temp.pixelColor(ancho - 1, alto - 1)
+                ]
+                all_white = all(
+                    p.red() == 255 and p.green() == 255 and p.blue() == 255 
+                    for p in sample_pixels
+                )
+                if all_white and ancho > 100 and alto > 100:
+                    logger.warning("La imagen capturada parece estar completamente en blanco")
             
             # Convertir QPixmap a QImage
             qimage = imagen.toImage()
