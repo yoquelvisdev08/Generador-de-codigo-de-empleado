@@ -15,6 +15,7 @@ from src.views.main_window import MainWindow
 from src.utils.file_utils import obtener_ruta_imagen
 from src.utils.auth_utils import solicitar_password
 from src.utils.id_generator import IDGenerator
+from src.controllers.carnet_controller import CarnetController
 
 
 class MainController:
@@ -30,6 +31,9 @@ class MainController:
         formatos = self.barcode_service.obtener_formatos_disponibles()
         self.main_window = MainWindow(formatos_disponibles=formatos)
         
+        # Inicializar controlador de carnet (se inicializa cuando se muestra la vista)
+        self.carnet_controller = None
+        
         self._conectar_senales()
         self._cargar_datos_iniciales()
     
@@ -37,8 +41,12 @@ class MainController:
         """Conecta las señales de los widgets con los métodos del controlador"""
         # Panel de generación
         self.main_window.generation_panel.boton_generar.clicked.connect(self.generar_codigo)
+        self.main_window.generation_panel.boton_crear_carnet.clicked.connect(self.mostrar_vista_carnet)
         # Conectar señales para actualización en tiempo real del ID
         self.main_window.generation_panel.conectar_senales_actualizacion(self.actualizar_id_preview)
+        
+        # Panel de carnet
+        self.main_window.carnet_panel.boton_volver.clicked.connect(self.mostrar_vista_generacion)
         
         # Panel de listado
         self.main_window.list_panel.campo_busqueda.textChanged.connect(self.buscar_codigos)
@@ -382,6 +390,22 @@ class MainController:
             f"Formatos: {estadisticas['formatos_diferentes']}"
         )
         self.main_window.actualizar_estadisticas(mensaje)
+    
+    def mostrar_vista_carnet(self):
+        """Cambia a la vista de creación de carnet"""
+        self.main_window.mostrar_vista_carnet()
+        
+        # Inicializar controlador de carnet si no está inicializado
+        if self.carnet_controller is None:
+            self.carnet_controller = CarnetController(
+                preview_panel=self.main_window.carnet_panel.preview_panel,
+                controls_panel=self.main_window.carnet_panel.controls_panel,
+                employees_panel=self.main_window.carnet_panel.employees_panel
+            )
+    
+    def mostrar_vista_generacion(self):
+        """Cambia a la vista de generación de códigos"""
+        self.main_window.mostrar_vista_generacion()
     
     def show(self):
         """Muestra la ventana principal"""

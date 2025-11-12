@@ -23,6 +23,8 @@ class ListPanel(QWidget):
     def init_ui(self):
         """Inicializa la interfaz de usuario"""
         layout = QVBoxLayout()
+        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setSpacing(5)
         self.setLayout(layout)
         
         grupo_busqueda = QGroupBox("Búsqueda y Filtros")
@@ -51,9 +53,15 @@ class ListPanel(QWidget):
             "ID", "Código de Barras", "ID Único", "Formato",
             "Nombre del Empleado", "Descripción", "Fecha"
         ])
-        self.tabla_codigos.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.Stretch
-        )
+        # Hacer la tabla responsive: algunas columnas fijas, otras estirables
+        header = self.tabla_codigos.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)  # ID: tamaño contenido
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Código: estirable
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)  # ID Único: estirable
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)  # Formato: tamaño contenido
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)  # Nombre: estirable
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)  # Descripción: estirable
+        header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)  # Fecha: tamaño contenido
         self.tabla_codigos.setSelectionBehavior(
             QTableWidget.SelectionBehavior.SelectRows
         )

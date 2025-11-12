@@ -2,6 +2,9 @@
 env/
 venv/
 ENV/
+.venv/
+env.bak/
+venv.bak/
 
 # Archivos de Python
 __pycache__/
@@ -9,18 +12,41 @@ __pycache__/
 *$py.class
 *.so
 .Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
 # Variables de entorno (contiene contraseñas)
 .env
+.env.local
+.env.*.local
 
 # Base de datos
 *.db
 *.sqlite
 *.sqlite3
+*.db-journal
 
 # Datos generados
 data/codigos_generados/
+data/carnets/
+data/backups/
 data/codigos_barras.db
+data/codigos_barras.db-journal
 
 # IDE
 .vscode/
@@ -28,14 +54,124 @@ data/codigos_barras.db
 *.swp
 *.swo
 *~
+.project
+.pydevproject
+.settings/
+*.sublime-project
+*.sublime-workspace
 
 # OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+Desktop.ini
 
 # Logs
 *.log
+logs/
+*.log.*
 
 # Archivos temporales
 *.tmp
 *.bak
+*.cache
+*.pyc
+*.pyo
+*.pyd
+
+# Archivos de PyQt6/WebEngine
+*.qmlc
+*.jsc
+*.qmlcache
+*.qm
+
+# Archivos de compilación
+*.o
+*.a
+*.lib
+*.dll
+*.dylib
+*.exe
+
+# Archivos de testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+*.cover
+*.coveragerc
+
+# Archivos de documentación generados
+docs/_build/
+docs/.doctrees/
+
+# Archivos de Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Archivos de mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Archivos de profiling
+*.prof
+*.lprof
+
+# Archivos de configuración local
+config/local.py
+config/local_settings.py
+
+# Archivos de sistema
+*.orig
+*.rej
+*~
+
+# Archivos de macOS específicos
+.AppleDouble
+.LSOverride
+Icon
+._.DS_Store
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Archivos de Windows específicos
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Archivos de Linux específicos
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# Archivos de respaldo
+*.backup
+*.old
+*.save
+
+# Archivos de exportación temporal
+exports/
+temp_exports/
+*.zip
+*.tar
+*.tar.gz
+*.rar
+
+# Archivos de configuración de usuario (no compartir)
+user_settings.json
+local_config.json

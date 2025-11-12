@@ -25,6 +25,8 @@ class GenerationPanel(QWidget):
     def init_ui(self):
         """Inicializa la interfaz de usuario"""
         layout = QVBoxLayout()
+        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setSpacing(5)
         self.setLayout(layout)
         
         grupo_generacion = QGroupBox("Generar Nuevo Código de Barras")
@@ -108,6 +110,12 @@ class GenerationPanel(QWidget):
         self.boton_generar = QPushButton("Generar Código de Barras")
         self.boton_generar.setMinimumHeight(40)
         layout_grupo.addWidget(self.boton_generar)
+        
+        self.boton_crear_carnet = QPushButton("Crear Carnet")
+        self.boton_crear_carnet.setMinimumHeight(40)
+        self.boton_crear_carnet.setStyleSheet("background-color: #6f42c1; color: white; font-weight: bold;")
+        self.boton_crear_carnet.setToolTip("Abre la ventana para crear un carnet")
+        layout_grupo.addWidget(self.boton_crear_carnet)
         
         layout.addWidget(grupo_generacion)
         
