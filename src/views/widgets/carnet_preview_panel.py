@@ -42,10 +42,10 @@ class CarnetPreviewPanel(QWidget):
         # Controles de fondo de vista previa
         layout_controles_fondo = QHBoxLayout()
         label_fondo = QLabel("Fondo de vista previa:")
+        self.color_fondo_actual = "#2b2b31"  # Color por defecto
         self.boton_color_fondo = QPushButton("Seleccionar Color")
-        self.boton_color_fondo.setStyleSheet("background-color: #6c757d; color: white; padding: 5px;")
+        self.boton_color_fondo.setStyleSheet(f"background-color: {self.color_fondo_actual}; color: white; padding: 5px;")
         self.boton_color_fondo.clicked.connect(self._seleccionar_color_fondo)
-        self.color_fondo_actual = "#ffffff"  # Blanco por defecto
         layout_controles_fondo.addWidget(label_fondo)
         layout_controles_fondo.addWidget(self.boton_color_fondo)
         layout_controles_fondo.addStretch()

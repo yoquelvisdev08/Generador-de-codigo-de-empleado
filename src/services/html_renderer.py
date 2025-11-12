@@ -266,7 +266,7 @@ class HTMLRenderer(QObject):
                 value = str(value)
             
             # Para atributos src de imágenes, usar placeholder si está vacío
-            if key in ["foto", "codigo_barras"] and not value:
+            if key in ["foto", "codigo_barras", "logo"] and not value:
                 value = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
             
             # Escapar HTML para evitar problemas con JavaScript

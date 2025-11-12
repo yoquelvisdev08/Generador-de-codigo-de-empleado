@@ -433,7 +433,12 @@ class CarnetControlsPanel(QWidget):
         """Genera campos de variables dinámicamente según el template HTML"""
         # Limpiar campos existentes
         for campo in self.campos_variables.values():
-            campo.deleteLater()
+            if isinstance(campo, dict):
+                # Si es un diccionario (variable de imagen), eliminar los widgets
+                if "campo" in campo:
+                    campo["campo"].deleteLater()
+            else:
+                campo.deleteLater()
         self.campos_variables.clear()
         
         # Limpiar layout
@@ -449,14 +454,16 @@ class CarnetControlsPanel(QWidget):
         # Detectar variables del template
         variables = self.html_template.detectar_variables()
         
-        # Excluir variables que se manejan automáticamente (imágenes)
-        variables_excluidas = {"codigo_barras", "foto", "id_unico"}
-        variables_editables = variables - variables_excluidas
+        # Variables de tipo imagen (permiten subir archivos)
+        variables_imagen = {"logo", "foto"}
+        
+        # Variables automáticas de solo lectura (vienen de la base de datos)
+        variables_automaticas = {"id_unico", "codigo_barras"}
         
         # Ordenar variables para mostrar primero las más comunes
-        orden_preferido = ["nombre", "cedula", "cargo", "empresa", "web"]
+        orden_preferido = ["logo", "nombre", "cedula", "cargo", "empresa", "web", "id_unico", "codigo_barras", "foto"]
         variables_ordenadas = sorted(
-            variables_editables,
+            variables,
             key=lambda x: (orden_preferido.index(x) if x in orden_preferido else 999, x)
         )
         
@@ -469,25 +476,107 @@ class CarnetControlsPanel(QWidget):
             label.setMinimumWidth(100)
             layout_var.addWidget(label)
             
-            # Campo de texto
-            campo = QLineEdit()
-            campo.setPlaceholderText(f"{{{{{var}}}}}")
-            campo.textChanged.connect(self._on_variable_changed)
-            layout_var.addWidget(campo)
+            # Si es una variable de imagen, mostrar botón para cargar imagen
+            if var in variables_imagen:
+                # Campo para mostrar la ruta
+                campo_ruta = QLineEdit()
+                if var == "codigo_barras":
+                    campo_ruta.setPlaceholderText("Se genera automáticamente desde la base de datos")
+                elif var == "foto":
+                    campo_ruta.setPlaceholderText("Ninguna foto seleccionada (opcional)")
+                else:
+                    campo_ruta.setPlaceholderText("Ninguna imagen seleccionada")
+                campo_ruta.setReadOnly(var in variables_automaticas)  # Solo lectura si es automática
+                if var in variables_automaticas:
+                    campo_ruta.setStyleSheet("background-color: #e9ecef; color: #6c757d;")
+                else:
+                    campo_ruta.setStyleSheet("background-color: #f5f5f5;")
+                layout_var.addWidget(campo_ruta)
+                
+                # Botón para cargar imagen (solo si no es automática)
+                if var not in variables_automaticas:
+                    boton_cargar = QPushButton("Cargar Imagen")
+                    boton_cargar.setStyleSheet("background-color: #007bff; color: white; padding: 5px;")
+                    boton_cargar.clicked.connect(lambda checked, v=var, c=campo_ruta: self._cargar_imagen_variable(v, c))
+                    
+                    # Botón para limpiar
+                    boton_limpiar = QPushButton("✕")
+                    boton_limpiar.setStyleSheet("background-color: #dc3545; color: white; padding: 5px; min-width: 30px;")
+                    boton_limpiar.setToolTip("Limpiar imagen")
+                    boton_limpiar.clicked.connect(lambda checked, v=var, c=campo_ruta: self._limpiar_imagen_variable(v, c))
+                    
+                    layout_var.addWidget(boton_cargar)
+                    layout_var.addWidget(boton_limpiar)
+                else:
+                    # Para variables automáticas, mostrar un label informativo
+                    label_info = QLabel("(Automático)")
+                    label_info.setStyleSheet("color: #6c757d; font-style: italic; font-size: 10pt;")
+                    layout_var.addWidget(label_info)
+                
+                # Guardar tanto el campo como el Path
+                self.campos_variables[var] = {"campo": campo_ruta, "path": None}
+            else:
+                # Campo de texto normal
+                campo = QLineEdit()
+                if var in variables_automaticas:
+                    # Variable automática: solo lectura
+                    campo.setReadOnly(True)
+                    campo.setPlaceholderText(f"{{{{{var}}}}} (se obtiene de la base de datos)")
+                    campo.setStyleSheet("background-color: #e9ecef; color: #6c757d;")
+                    # Agregar label informativo
+                    label_info = QLabel("(Automático)")
+                    label_info.setStyleSheet("color: #6c757d; font-style: italic; font-size: 10pt;")
+                    layout_var.addWidget(campo)
+                    layout_var.addWidget(label_info)
+                else:
+                    # Variable editable
+                    campo.setPlaceholderText(f"{{{{{var}}}}}")
+                    campo.textChanged.connect(self._on_variable_changed)
+                    layout_var.addWidget(campo)
+                
+                self.campos_variables[var] = campo
             
-            self.campos_variables[var] = campo
             self.variables_layout.addLayout(layout_var)
         
         # Si no hay variables, mostrar mensaje
-        if not variables_editables:
-            label_vacio = QLabel("No se encontraron variables editables en el template")
+        if not variables:
+            label_vacio = QLabel("No se encontraron variables en el template")
             label_vacio.setStyleSheet("color: #999; font-style: italic;")
             self.variables_layout.addWidget(label_vacio)
+    
+    def _cargar_imagen_variable(self, variable: str, campo_ruta: QLineEdit):
+        """Abre diálogo para cargar una imagen para una variable"""
+        archivo, _ = QFileDialog.getOpenFileName(
+            self, 
+            f"Seleccionar Imagen para {variable.capitalize()}", 
+            "", 
+            "Archivos de Imagen (*.png *.jpg *.jpeg *.gif *.bmp)"
+        )
+        if archivo:
+            ruta = Path(archivo)
+            if ruta.exists():
+                campo_ruta.setText(str(ruta))
+                # Guardar el Path en el diccionario
+                if isinstance(self.campos_variables[variable], dict):
+                    self.campos_variables[variable]["path"] = ruta
+                self._on_variable_changed()
+    
+    def _limpiar_imagen_variable(self, variable: str, campo_ruta: QLineEdit):
+        """Limpia la imagen seleccionada para una variable"""
+        campo_ruta.clear()
+        if isinstance(self.campos_variables[variable], dict):
+            self.campos_variables[variable]["path"] = None
+        self._on_variable_changed()
     
     def obtener_variables_html(self) -> dict:
         """Obtiene las variables HTML editadas por el usuario"""
         resultado = {}
         for var, campo in self.campos_variables.items():
-            resultado[var] = campo.text()
+            if isinstance(campo, dict):
+                # Es una variable de imagen, retornar el Path
+                resultado[var] = campo.get("path", None)
+            else:
+                # Es un campo de texto normal
+                resultado[var] = campo.text()
         return resultado
 

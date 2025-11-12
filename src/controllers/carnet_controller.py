@@ -116,12 +116,28 @@ class CarnetController:
             return
         
         id_db, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo = empleado
+        codigo_path = IMAGES_DIR / nombre_archivo
         
         # Actualizar campos de variables dinámicamente
         if nombre_empleado and "nombre" in self.controls_panel.campos_variables:
-            self.controls_panel.campos_variables["nombre"].setText(nombre_empleado)
+            campo_nombre = self.controls_panel.campos_variables["nombre"]
+            if not isinstance(campo_nombre, dict):
+                campo_nombre.setText(nombre_empleado)
         
-        # El ID único se usa automáticamente, no se edita
+        # Actualizar ID único (automático)
+        if "id_unico" in self.controls_panel.campos_variables:
+            campo_id = self.controls_panel.campos_variables["id_unico"]
+            if not isinstance(campo_id, dict):
+                campo_id.setText(id_unico or "")
+        
+        # Actualizar código de barras (automático)
+        if "codigo_barras" in self.controls_panel.campos_variables:
+            campo_codigo = self.controls_panel.campos_variables["codigo_barras"]
+            if isinstance(campo_codigo, dict) and "campo" in campo_codigo:
+                if codigo_path.exists():
+                    campo_codigo["campo"].setText(str(codigo_path))
+                else:
+                    campo_codigo["campo"].setText("No disponible")
     
     def actualizar_vista_previa(self):
         """Actualiza la vista previa del carnet"""
@@ -163,7 +179,7 @@ class CarnetController:
         # Preparar variables (combinar datos del empleado con variables del usuario)
         variables = {}
         
-        # Variables automáticas (no editables)
+        # Variables automáticas (vienen de la base de datos)
         if self.empleado_actual:
             id_db, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo = self.empleado_actual
             nombre = nombre_empleado or "SIN NOMBRE"
@@ -172,10 +188,23 @@ class CarnetController:
             # ID único siempre se obtiene del empleado
             if "id_unico" in variables_template:
                 variables["id_unico"] = id_unico or ""
+                # Actualizar campo en la UI si existe
+                if "id_unico" in self.controls_panel.campos_variables:
+                    campo_id = self.controls_panel.campos_variables["id_unico"]
+                    if not isinstance(campo_id, dict):
+                        campo_id.setText(id_unico or "")
             
             # Código de barras como imagen
             if "codigo_barras" in variables_template:
                 variables["codigo_barras"] = codigo_path if codigo_path and codigo_path.exists() else Path("")
+                # Actualizar campo en la UI si existe
+                if "codigo_barras" in self.controls_panel.campos_variables:
+                    campo_codigo = self.controls_panel.campos_variables["codigo_barras"]
+                    if isinstance(campo_codigo, dict) and "campo" in campo_codigo:
+                        if codigo_path.exists():
+                            campo_codigo["campo"].setText(str(codigo_path))
+                        else:
+                            campo_codigo["campo"].setText("No disponible")
             
             # Nombre por defecto del empleado (puede ser sobrescrito por usuario)
             if "nombre" in variables_template:
@@ -184,8 +213,16 @@ class CarnetController:
             # Datos de ejemplo
             if "id_unico" in variables_template:
                 variables["id_unico"] = "EJEMPLO123"
+                if "id_unico" in self.controls_panel.campos_variables:
+                    campo_id = self.controls_panel.campos_variables["id_unico"]
+                    if not isinstance(campo_id, dict):
+                        campo_id.setText("EJEMPLO123")
             if "codigo_barras" in variables_template:
                 variables["codigo_barras"] = Path("")
+                if "codigo_barras" in self.controls_panel.campos_variables:
+                    campo_codigo = self.controls_panel.campos_variables["codigo_barras"]
+                    if isinstance(campo_codigo, dict) and "campo" in campo_codigo:
+                        campo_codigo["campo"].setText("No disponible (ejemplo)")
             if "nombre" in variables_template:
                 variables["nombre"] = variables_usuario.get("nombre", "EJEMPLO") or "EJEMPLO"
         
@@ -193,11 +230,24 @@ class CarnetController:
         if "foto" in variables_template:
             variables["foto"] = Path("")
         
+        # Logo: puede ser cargado por el usuario
+        if "logo" in variables_template:
+            logo_path = variables_usuario.get("logo")
+            if logo_path and isinstance(logo_path, Path) and logo_path.exists():
+                variables["logo"] = logo_path
+            else:
+                variables["logo"] = Path("")
+        
         # Agregar todas las variables editables del usuario
         for var in variables_template:
-            if var not in {"id_unico", "codigo_barras", "foto"}:  # Estas se manejan automáticamente
+            if var not in {"id_unico", "codigo_barras", "foto", "logo"}:  # Estas se manejan automáticamente
                 if var not in variables:  # Solo si no se estableció antes
-                    variables[var] = variables_usuario.get(var, "") or ""
+                    valor = variables_usuario.get(var, "")
+                    # Si es un Path, mantenerlo; si es string, usar el texto
+                    if isinstance(valor, Path):
+                        variables[var] = valor
+                    else:
+                        variables[var] = str(valor) or ""
         
         # Valores por defecto para variables comunes si están vacías
         valores_default = {
