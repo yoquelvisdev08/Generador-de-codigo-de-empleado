@@ -8,13 +8,14 @@ Aplicación de escritorio con interfaz gráfica para generar códigos de barras 
 
 - **Sistema de autenticación**: Login con usuario y contraseña, soporte para roles (admin/user)
 - **Generación de códigos de barras**: Múltiples formatos (Code128, EAN13, EAN8, Code39)
-- **ID personalizado**: Configuración de tipo de caracteres, longitud e inclusión de nombre
+- **ID personalizado**: Configuración de tipo de caracteres, longitud, inclusión de nombre y texto personalizado
 - **Base de datos local SQLite**: Almacenamiento persistente con backups automáticos
 - **Verificación de duplicados**: Antes de generar nuevos códigos
-- **Interfaz gráfica moderna**: Diseño profesional con PyQt6
+- **Interfaz gráfica moderna**: Diseño profesional con PyQt6 y navbar de navegación
 - **Vista previa en tiempo real**: Actualización automática del ID mientras configura opciones
 - **Búsqueda y filtrado**: Búsqueda avanzada de códigos existentes
 - **Exportación**: Exportación individual o masiva de imágenes
+- **Importación/Exportación Excel**: Gestión masiva de datos mediante archivos Excel
 - **Editor de Carnets**: Diseño de carnets de identificación con templates HTML
 - **Gestión completa**: Crear, ver, eliminar códigos y gestionar imágenes
 - **Control de permisos**: Los administradores tienen acceso a funciones adicionales
@@ -76,6 +77,7 @@ Las dependencias incluyen:
 - pyzbar: Para la lectura y validación de códigos de barras (requiere zbar en macOS)
 - numpy: Para el procesamiento de imágenes
 - python-dotenv: Para gestionar variables de entorno y configuración de seguridad
+- openpyxl: Para importación y exportación de datos en formato Excel
 
 ## Uso
 
@@ -102,17 +104,25 @@ O usando el script de ejecución (recomendado):
 
 **En macOS:** Si obtiene un error relacionado con `zbar`, asegúrese de haber instalado `zbar` con Homebrew (ver requisitos adicionales arriba) y de que el entorno virtual esté activado correctamente. El script de activación configura automáticamente las variables de entorno necesarias.
 
+### Navegación
+
+La aplicación cuenta con un navbar permanente en la parte superior con un menú **Tools** que contiene:
+- **Código de Barras**: Acceso al generador de códigos de barras
+- **Crear Carnet**: Acceso al editor de carnets de identificación
+
 ### Generar un código de barras
 
-1. Ingrese el nombre del empleado en el campo "Nombre del Empleado"
-2. Ingrese el código de empleado en el campo "Código de Empleado" (campo obligatorio)
-3. Seleccione el formato deseado (Code128, EAN13, EAN8, Code39)
-4. Configure las opciones de generación de ID:
+1. Acceda a "Código de Barras" desde el menú **Tools** en el navbar
+2. Ingrese el nombre del empleado en el campo "Nombre del Empleado"
+3. Ingrese el código de empleado en el campo "Código de Empleado" (campo obligatorio)
+4. Seleccione el formato deseado (Code128, EAN13, EAN8, Code39)
+5. Configure las opciones de generación de ID:
    - Tipo de caracteres: Alfanumérico, Numérico, o Solo Letras
    - Cantidad de caracteres (por defecto: 10)
    - Opcionalmente, incluya el nombre del empleado en el código
-5. El ID se generará automáticamente y se mostrará en tiempo real en la vista previa
-6. Haga clic en "Generar Código de Barras"
+   - Opcionalmente, cree un texto personalizado para el código de barras (aparece un campo de entrada cuando se marca esta opción)
+6. El ID se generará automáticamente y se mostrará en tiempo real en la vista previa
+7. Haga clic en "Generar Código de Barras"
 
 El sistema generará automáticamente un ID único personalizado según las opciones seleccionadas. El ID aparecerá debajo del código y es el valor que se leerá al escanearlo.
 
@@ -125,15 +135,35 @@ El sistema generará automáticamente un ID único personalizado según las opci
 
 ### Funcionalidades Adicionales
 
+#### Gestión de Códigos de Barras
+
 - **Búsqueda**: Use el campo de búsqueda para filtrar códigos por código de barras, ID único, nombre de empleado o código de empleado
 - **Vista Previa**: Al seleccionar un código en la tabla, la imagen se muestra automáticamente en el panel de generación
 - **Exportar Seleccionados**: Seleccione múltiples códigos (Ctrl+clic o Shift+clic) y exporte las imágenes a una carpeta. Los archivos se nombran como: `nombre_empleado_codigo_barras.png`
 - **Exportar Todos (ZIP)**: Exporta todos los códigos en un archivo ZIP con el mismo formato de nombres
-- **Crear Carnet**: Botón para acceder al editor de carnets de identificación
-- **Backup BD** (Solo Admin): Crea un backup de la base de datos con timestamp
 - **Eliminar**: Seleccione un código y haga clic en "Eliminar" para removerlo de la base de datos
-- **Limpiar Base de Datos** (Solo Admin): Elimina todos los códigos de la base de datos (acción irreversible)
-- **Limpiar Imágenes Huérfanas** (Solo Admin): Elimina imágenes que no tienen registro en la base de datos
+
+#### Funcionalidades Excel
+
+- **Exportar Data en Excel**: Exporta todos los datos de la base de datos a un archivo Excel con formato profesional. Las columnas exportadas son: ID, Código de Barras, ID Único, Fecha de Creación, Nombre del Empleado, Código de Empleado y Formato
+- **Importar Data en Excel**: Importa datos desde un archivo Excel y genera códigos de barras automáticamente. El proceso incluye:
+  - Validación de datos (columnas requeridas: "Nombre del Empleado" y "Código de Empleado")
+  - Generación automática de códigos de barras
+  - Validación de códigos generados
+  - Detección de duplicados
+  - Opción de regenerar códigos que fallan la validación
+  - Diálogo de progreso para mantener al usuario informado
+- **Descargar Excel de Ejemplo**: Descarga un archivo Excel de ejemplo con el formato correcto para importar datos. Incluye columnas requeridas y opcionales, con datos de ejemplo y notas explicativas
+
+#### Funcionalidades de Administración (Solo Admin)
+
+- **Backup BD**: Crea un backup de la base de datos con timestamp
+- **Limpiar Base de Datos**: Elimina todos los códigos de la base de datos (acción irreversible)
+- **Limpiar Imágenes Huérfanas**: Elimina imágenes que no tienen registro en la base de datos
+
+#### Editor de Carnets
+
+- **Crear Carnet**: Acceda desde el menú **Tools** > **Crear Carnet** para diseñar carnets de identificación con templates HTML personalizables
 
 ## Arquitectura del Proyecto
 
@@ -166,6 +196,7 @@ Generador-de-codigo-de-empleado/
 │   │   ├── __init__.py
 │   │   ├── barcode_service.py    # Generación y validación de códigos
 │   │   ├── export_service.py     # Exportación de códigos
+│   │   ├── excel_service.py      # Importación y exportación Excel
 │   │   ├── html_renderer.py      # Renderizado de templates HTML
 │   │   └── carnet_designer.py    # Diseño de carnets (PIL)
 │   │
@@ -178,8 +209,9 @@ Generador-de-codigo-de-empleado/
 │   │       ├── __init__.py
 │   │       ├── generation_panel.py      # Panel de generación
 │   │       ├── list_panel.py            # Panel de listado
+│   │       ├── progress_dialog.py       # Diálogo de progreso para operaciones largas
 │   │       ├── carnet_preview_panel.py  # Vista previa de carnet
-│   │       ├── carnet_controls_panel.py # Controles de diseño de carnet
+│   │       ├── carnet_controls_panel.py  # Controles de diseño de carnet
 │   │       └── carnet_employees_panel.py # Lista de empleados para carnet
 │   │
 │   ├── controllers/          # Controladores (Presenter)
@@ -225,6 +257,8 @@ La aplicación utiliza SQLite como base de datos local. El archivo `codigos_barr
 
 ### Estructura de la Tabla
 
+La tabla `codigos_barras` contiene los siguientes campos:
+
 - `id`: Identificador único del registro (auto-incremental)
 - `codigo_barras`: ID único aleatorio alfanumérico codificado en el código de barras
 - `id_unico`: ID único aleatorio alfanumérico (mismo que codigo_barras)
@@ -232,7 +266,9 @@ La aplicación utiliza SQLite como base de datos local. El archivo `codigos_barr
 - `nombre_empleado`: Nombre del empleado asociado al código
 - `descripcion`: Código de empleado (campo obligatorio)
 - `formato`: Formato del código de barras utilizado (Code128, EAN13, EAN8, Code39)
-- `nombre_archivo`: Nombre del archivo de imagen generado
+- `nombre_archivo`: Nombre del archivo de imagen generado (usado principalmente para carnets)
+
+**Nota**: El campo `nombre_archivo` no se muestra en la vista de códigos de barras, ya que es exclusivo del generador de carnets. En la vista de códigos de barras, el nombre del archivo se genera dinámicamente cuando es necesario.
 
 ## Notas Técnicas
 
@@ -248,9 +284,13 @@ El proyecto sigue el patrón **Model-View-Presenter (MVP)**:
 ### Características Técnicas
 
 - Los códigos de barras se generan como imágenes PNG en el directorio `data/codigos_generados/`
-- Cada código tiene un ID único aleatorio alfanumérico de 6 caracteres (0-9, A-Z) que garantiza la unicidad
+- Cada código tiene un ID único aleatorio alfanumérico configurable que garantiza la unicidad
 - El sistema verifica duplicados antes de generar cada ID, asegurando que no se repitan
-- El ID generado es el valor que se codifica en el código de barras y aparece como texto debajo del código
+- El ID generado puede incluir:
+  - Texto personalizado (si se especifica)
+  - Nombre del empleado (opcional)
+  - Caracteres aleatorios según la configuración (alfanumérico, numérico, solo letras)
+- El ID es el valor que se codifica en el código de barras y aparece como texto debajo del código
 - Al escanear el código de barras, se leerá exactamente ese ID único
 - La base de datos incluye índices para optimizar las búsquedas
 - Los nombres de archivo exportados siguen el formato: `nombre_empleado_codigo_barras.png`
@@ -259,6 +299,9 @@ El proyecto sigue el patrón **Model-View-Presenter (MVP)**:
 - **Backup automático**: Se crean backups automáticos antes de operaciones críticas (eliminar, limpiar BD)
 - **Gestión optimizada de conexiones**: Uso de context managers para mejor manejo de recursos
 - **Limpieza automática de backups**: Se mantienen solo los 10 backups más recientes
+- **Importación/Exportación Excel**: Sistema completo para gestión masiva de datos con validación y generación automática
+- **Interfaz con scroll**: El panel de generación incluye scroll vertical para mejor navegación
+- **Navbar de navegación**: Barra de navegación permanente con menú desplegable para acceso rápido a funcionalidades principales
 
 ## Solución de Problemas
 
