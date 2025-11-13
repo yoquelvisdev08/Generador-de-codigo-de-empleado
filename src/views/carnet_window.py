@@ -29,13 +29,6 @@ class CarnetPanel(QWidget):
         layout_principal.setSpacing(5)
         self.setLayout(layout_principal)
         
-        # Botón para volver a la vista de generación
-        self.boton_volver = QPushButton("← Volver a Generar Código")
-        self.boton_volver.setStyleSheet("background-color: #6c757d; color: white; font-weight: bold; padding: 10px;")
-        self.boton_volver.setMinimumHeight(40)
-        self.boton_volver.setMaximumHeight(40)
-        layout_principal.addWidget(self.boton_volver)
-        
         # Splitter horizontal para los dos paneles superiores (12% vista previa, 88% controles - aumentado 20%)
         splitter_superior = QSplitter(Qt.Orientation.Horizontal)
         splitter_superior.setChildrenCollapsible(False)

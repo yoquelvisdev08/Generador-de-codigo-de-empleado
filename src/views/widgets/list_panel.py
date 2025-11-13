@@ -43,6 +43,82 @@ class ListPanel(QWidget):
         
         layout.addWidget(grupo_busqueda)
         
+        # Botones de acción debajo del buscador - organizados en 3 filas de 3 botones cada una
+        contenedor_botones = QVBoxLayout()
+        contenedor_botones.setSpacing(8)  # Espacio vertical entre filas
+        
+        # Primera fila de botones (3 botones)
+        fila1 = QHBoxLayout()
+        fila1.setSpacing(10)  # Espacio horizontal entre botones
+        
+        self.boton_exportar = QPushButton("Exportar Seleccionados")
+        self.boton_exportar.setMinimumWidth(150)
+        fila1.addWidget(self.boton_exportar)
+        
+        self.boton_exportar_todos = QPushButton("Exportar Todos (ZIP)")
+        self.boton_exportar_todos.setMinimumWidth(150)
+        fila1.addWidget(self.boton_exportar_todos)
+        
+        self.boton_exportar_excel = QPushButton("Exportar Data en Excel")
+        self.boton_exportar_excel.setStyleSheet("background-color: #17a2b8; color: white;")
+        self.boton_exportar_excel.setMinimumWidth(160)
+        self.boton_exportar_excel.setToolTip("Exporta todos los datos de la base de datos a un archivo Excel")
+        fila1.addWidget(self.boton_exportar_excel)
+        
+        fila1.addStretch()  # Empujar botones hacia la izquierda
+        contenedor_botones.addLayout(fila1)
+        
+        # Segunda fila de botones (3 botones)
+        fila2 = QHBoxLayout()
+        fila2.setSpacing(10)
+        
+        self.boton_importar_excel = QPushButton("Importar Data en Excel")
+        self.boton_importar_excel.setStyleSheet("background-color: #6f42c1; color: white;")
+        self.boton_importar_excel.setMinimumWidth(160)
+        self.boton_importar_excel.setToolTip("Importa datos desde un archivo Excel y genera códigos de barras automáticamente")
+        fila2.addWidget(self.boton_importar_excel)
+        
+        self.boton_descargar_ejemplo_excel = QPushButton("Descargar Excel de Ejemplo")
+        self.boton_descargar_ejemplo_excel.setStyleSheet("background-color: #ffc107; color: black;")
+        self.boton_descargar_ejemplo_excel.setMinimumWidth(200)
+        self.boton_descargar_ejemplo_excel.setToolTip("Descarga un archivo Excel de ejemplo con el formato esperado para importar datos")
+        fila2.addWidget(self.boton_descargar_ejemplo_excel)
+        
+        self.boton_backup = QPushButton("Backup BD")
+        self.boton_backup.setStyleSheet("background-color: #28a745; color: white;")
+        self.boton_backup.setMinimumWidth(120)
+        fila2.addWidget(self.boton_backup)
+        
+        fila2.addStretch()  # Empujar botones hacia la izquierda
+        contenedor_botones.addLayout(fila2)
+        
+        # Tercera fila de botones (3 botones)
+        fila3 = QHBoxLayout()
+        fila3.setSpacing(10)
+        
+        self.boton_eliminar = QPushButton("Eliminar")
+        self.boton_eliminar.setStyleSheet("background-color: #dc3545; color: white;")
+        self.boton_eliminar.setMinimumWidth(120)
+        fila3.addWidget(self.boton_eliminar)
+        
+        self.boton_limpiar = QPushButton("Limpiar Base de Datos")
+        self.boton_limpiar.setStyleSheet("background-color: #ff8800; color: white;")
+        self.boton_limpiar.setMinimumWidth(180)
+        fila3.addWidget(self.boton_limpiar)
+        
+        self.boton_limpiar_imagenes = QPushButton("Limpiar Imágenes Huérfanas")
+        self.boton_limpiar_imagenes.setStyleSheet("background-color: #6c757d; color: white;")
+        self.boton_limpiar_imagenes.setMinimumWidth(200)
+        self.boton_limpiar_imagenes.setToolTip(
+            "Elimina imágenes que no tienen registro en la base de datos"
+        )
+        fila3.addWidget(self.boton_limpiar_imagenes)
+        
+        fila3.addStretch()  # Empujar botones hacia la izquierda
+        contenedor_botones.addLayout(fila3)
+        
+        layout.addLayout(contenedor_botones)
+        
         grupo_listado = QGroupBox("Códigos Generados")
         layout_listado = QVBoxLayout()
         grupo_listado.setLayout(layout_listado)
@@ -74,36 +150,6 @@ class ListPanel(QWidget):
         )
         
         layout_listado.addWidget(self.tabla_codigos)
-        
-        layout_botones = QHBoxLayout()
-        
-        self.boton_exportar = QPushButton("Exportar Seleccionados")
-        layout_botones.addWidget(self.boton_exportar)
-        
-        self.boton_exportar_todos = QPushButton("Exportar Todos (ZIP)")
-        layout_botones.addWidget(self.boton_exportar_todos)
-        
-        self.boton_backup = QPushButton("Backup BD")
-        self.boton_backup.setStyleSheet("background-color: #28a745; color: white;")
-        layout_botones.addWidget(self.boton_backup)
-        
-        self.boton_eliminar = QPushButton("Eliminar")
-        self.boton_eliminar.setStyleSheet("background-color: #dc3545; color: white;")
-        layout_botones.addWidget(self.boton_eliminar)
-        
-        self.boton_limpiar = QPushButton("Limpiar Base de Datos")
-        self.boton_limpiar.setStyleSheet("background-color: #ff8800; color: white;")
-        layout_botones.addWidget(self.boton_limpiar)
-        
-        self.boton_limpiar_imagenes = QPushButton("Limpiar Imágenes Huérfanas")
-        self.boton_limpiar_imagenes.setStyleSheet("background-color: #6c757d; color: white;")
-        self.boton_limpiar_imagenes.setToolTip(
-            "Elimina imágenes que no tienen registro en la base de datos"
-        )
-        layout_botones.addWidget(self.boton_limpiar_imagenes)
-        
-        layout_botones.addStretch()
-        layout_listado.addLayout(layout_botones)
         
         layout.addWidget(grupo_listado)
         

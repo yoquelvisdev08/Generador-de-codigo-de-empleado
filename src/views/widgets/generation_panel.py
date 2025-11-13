@@ -115,12 +115,6 @@ class GenerationPanel(QWidget):
         self.boton_generar.setMinimumHeight(40)
         layout_grupo.addWidget(self.boton_generar)
         
-        self.boton_crear_carnet = QPushButton("Crear Carnet")
-        self.boton_crear_carnet.setMinimumHeight(40)
-        self.boton_crear_carnet.setStyleSheet("background-color: #6f42c1; color: white; font-weight: bold;")
-        self.boton_crear_carnet.setToolTip("Abre la ventana para crear un carnet")
-        layout_grupo.addWidget(self.boton_crear_carnet)
-        
         layout.addWidget(grupo_generacion)
         
         grupo_vista_previa = QGroupBox("Vista Previa")
