@@ -30,7 +30,7 @@ class HTMLRenderer(QObject):
         html_content: str,
         ancho: int,
         alto: int,
-        dpi: int = 300
+        dpi: int = 600
     ) -> Optional[Image.Image]:
         """
         Renderiza HTML a una imagen PIL
@@ -73,6 +73,24 @@ class HTMLRenderer(QObject):
             settings = web_view.settings()
             settings.setAttribute(settings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
             settings.setAttribute(settings.WebAttribute.JavascriptEnabled, True)
+            
+            # Configurar para alta calidad de renderizado
+            # Habilitar aceleración de hardware si está disponible
+            settings.setAttribute(settings.WebAttribute.Accelerated2dCanvasEnabled, True)
+            # Mejorar calidad de fuentes
+            settings.setAttribute(settings.WebAttribute.LocalFontsEnabled, True)
+            
+            # Configurar zoom para alta resolución (si el DPI es alto, renderizar más grande)
+            if dpi > 300:
+                # Para 600 DPI, renderizar a 2x y luego escalar
+                factor_escala = dpi / 300.0
+                ancho_render = int(ancho * factor_escala)
+                alto_render = int(alto * factor_escala)
+                parent_widget.setFixedSize(ancho_render, alto_render)
+                web_view.setFixedSize(ancho_render, alto_render)
+            else:
+                ancho_render = ancho
+                alto_render = alto
             
             # Procesar eventos para que se muestre
             QApplication.processEvents()
@@ -189,8 +207,33 @@ class HTMLRenderer(QObject):
             width_capturado = qimage.width()
             height_capturado = qimage.height()
             
-            # Escalar al tamaño deseado si es necesario (puede estar a 2x por devicePixelRatio)
-            if width_capturado != ancho or height_capturado != alto:
+            # Si renderizamos a alta resolución, mantener el tamaño renderizado (no escalar hacia abajo)
+            # Esto permite que la imagen final tenga más píxeles y por tanto mayor calidad
+            if dpi > 300:
+                factor_escala = dpi / 300.0
+                ancho_final = int(ancho * factor_escala)
+                alto_final = int(alto * factor_escala)
+                
+                # Si la imagen capturada es del tamaño renderizado, mantener ese tamaño
+                # (no escalar hacia abajo, así la imagen final tiene más resolución)
+                if width_capturado == ancho_render and height_capturado == alto_render:
+                    logger.info(f"Manteniendo imagen de alta resolución {width_capturado}x{height_capturado} (600 DPI)")
+                    # No escalar, mantener la alta resolución
+                    # Actualizar ancho y alto para que la imagen PIL tenga el tamaño correcto
+                    ancho = ancho_render
+                    alto = alto_render
+                elif width_capturado != ancho_render or height_capturado != alto_render:
+                    # Si hay discrepancia, escalar al tamaño renderizado esperado
+                    logger.info(f"Escalando imagen de {width_capturado}x{height_capturado} a {ancho_render}x{alto_render}")
+                    qimage = qimage.scaled(
+                        ancho_render, alto_render,
+                        Qt.AspectRatioMode.IgnoreAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation
+                    )
+                    ancho = ancho_render
+                    alto = alto_render
+            elif width_capturado != ancho or height_capturado != alto:
+                # Escalar al tamaño deseado si es necesario (puede estar a 2x por devicePixelRatio)
                 logger.info(f"Escalando imagen de {width_capturado}x{height_capturado} a {ancho}x{alto}")
                 qimage = qimage.scaled(
                     ancho, alto,

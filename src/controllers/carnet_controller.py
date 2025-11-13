@@ -426,12 +426,12 @@ class CarnetController:
                 logger.info(f"Variables inyectadas: {list(variables.keys())}")
                 logger.info(f"Tamaño del HTML: {len(html_content)} caracteres")
                 
-                # Renderizar HTML a imagen
+                # Renderizar HTML a imagen con alta calidad (600 DPI)
                 imagen = self.html_renderer.renderizar_html_a_imagen(
                     html_content=html_content,
                     ancho=html_template.ancho,
                     alto=html_template.alto,
-                    dpi=300
+                    dpi=600  # Alta calidad para impresión profesional
                 )
                 
                 if imagen:
@@ -447,13 +447,14 @@ class CarnetController:
                     )
                     return
                 
-                # Guardar carnet
+                # Guardar carnet con máxima calidad PNG
                 from src.utils.file_utils import limpiar_nombre_archivo
                 nombre_limpio = limpiar_nombre_archivo(nombre_empleado or "sin_nombre")
                 nombre_archivo_carnet = f"carnet_{nombre_limpio}_{id_unico}.png"
                 ruta_carnet = CARNETS_DIR / nombre_archivo_carnet
                 
-                imagen.save(ruta_carnet, "PNG", dpi=(300, 300))
+                # Guardar con máxima calidad (600 DPI, sin optimización, compresión mínima)
+                imagen.save(ruta_carnet, "PNG", dpi=(600, 600), optimize=False, compress_level=1)
                 
                 QMessageBox.information(
                     self.employees_panel,
@@ -610,12 +611,12 @@ class CarnetController:
                     # Inyectar variables en HTML
                     html_content = self.html_renderer._inyectar_variables(html_base, variables)
                     
-                    # Renderizar HTML a imagen
+                    # Renderizar HTML a imagen con alta calidad (600 DPI)
                     imagen = self.html_renderer.renderizar_html_a_imagen(
                         html_content=html_content,
                         ancho=html_template.ancho,
                         alto=html_template.alto,
-                        dpi=300
+                        dpi=600  # Alta calidad para impresión profesional
                     )
                     
                     if not imagen:
@@ -628,7 +629,8 @@ class CarnetController:
                     nombre_archivo_carnet = f"carnet_{nombre_limpio}_{id_unico}.png"
                     ruta_carnet = CARNETS_DIR / nombre_archivo_carnet
                     
-                    imagen.save(ruta_carnet, "PNG", dpi=(300, 300))
+                    # Guardar con máxima calidad PNG
+                    imagen.save(ruta_carnet, "PNG", dpi=(600, 600), optimize=False, compress_level=1)
                     exitosos += 1
                 else:
                     # Usar sistema PIL antiguo
