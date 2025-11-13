@@ -118,6 +118,7 @@ class MainController:
                 longitud=opciones_id['cantidad_caracteres'],
                 incluir_nombre=opciones_id['incluir_nombre'],
                 nombre_empleado=nombre_empleado if opciones_id['incluir_nombre'] else None,
+                texto_personalizado=opciones_id.get('texto_personalizado'),
                 verificar_duplicado=self.db_manager.verificar_codigo_existe
             )
             
@@ -406,6 +407,7 @@ class MainController:
                 longitud=opciones['cantidad_caracteres'],
                 incluir_nombre=incluir_nombre,
                 nombre_empleado=nombre_empleado if incluir_nombre else None,
+                texto_personalizado=opciones.get('texto_personalizado'),
                 verificar_duplicado=None  # No verificar en la vista previa
             )
             
@@ -678,6 +680,7 @@ class MainController:
                         tipo="alfanumerico",
                         longitud=10,
                         incluir_nombre=False,
+                        texto_personalizado=None,
                         verificar_duplicado=self.db_manager.verificar_codigo_existe
                     )
                     
