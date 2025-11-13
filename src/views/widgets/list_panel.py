@@ -124,10 +124,10 @@ class ListPanel(QWidget):
         grupo_listado.setLayout(layout_listado)
         
         self.tabla_codigos = QTableWidget()
-        self.tabla_codigos.setColumnCount(8)
+        self.tabla_codigos.setColumnCount(7)
         self.tabla_codigos.setHorizontalHeaderLabels([
             "ID", "Código de Barras", "ID Único", "Formato",
-            "Nombre del Empleado", "Código de Empleado", "Fecha", "Archivo"
+            "Nombre del Empleado", "Código de Empleado", "Fecha"
         ])
         # Hacer la tabla responsive: algunas columnas fijas, otras estirables
         header = self.tabla_codigos.horizontalHeader()
@@ -138,7 +138,6 @@ class ListPanel(QWidget):
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)  # Nombre: estirable
         header.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)  # Código de Empleado: estirable
         header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)  # Fecha: tamaño contenido
-        header.setSectionResizeMode(7, QHeaderView.ResizeMode.ResizeToContents)  # Archivo: tamaño contenido
         self.tabla_codigos.setSelectionBehavior(
             QTableWidget.SelectionBehavior.SelectRows
         )
@@ -181,7 +180,6 @@ class ListPanel(QWidget):
             self.tabla_codigos.setItem(fila, 4, QTableWidgetItem(nombre_empleado or ""))
             self.tabla_codigos.setItem(fila, 5, QTableWidgetItem(descripcion or ""))
             self.tabla_codigos.setItem(fila, 6, QTableWidgetItem(fecha))
-            self.tabla_codigos.setItem(fila, 7, QTableWidgetItem(nombre_archivo or ""))
     
     def obtener_fila_seleccionada(self):
         """
@@ -198,14 +196,12 @@ class ListPanel(QWidget):
         codigo_barras = self.tabla_codigos.item(fila, 1).text()
         id_unico = self.tabla_codigos.item(fila, 2).text()
         formato = self.tabla_codigos.item(fila, 3).text()
-        nombre_archivo = self.tabla_codigos.item(fila, 7).text()  # Obtener nombre_archivo de la columna
+        nombre_empleado = self.tabla_codigos.item(fila, 4).text()
         
-        # Si no hay nombre_archivo en la tabla, generar uno como fallback
-        if not nombre_archivo:
-            nombre_empleado = self.tabla_codigos.item(fila, 4).text()
-            from src.utils.file_utils import limpiar_nombre_archivo
-            nombre_empleado_limpio = limpiar_nombre_archivo(nombre_empleado or "sin_nombre")
-            nombre_archivo = f"{nombre_empleado_limpio}_{codigo_barras}.png"
+        # Generar nombre_archivo dinámicamente (no se muestra en la tabla)
+        from src.utils.file_utils import limpiar_nombre_archivo
+        nombre_empleado_limpio = limpiar_nombre_archivo(nombre_empleado or "sin_nombre")
+        nombre_archivo = f"{nombre_empleado_limpio}_{codigo_barras}.png"
         
         return id_db, codigo_barras, id_unico, formato, nombre_archivo
     
@@ -225,13 +221,16 @@ class ListPanel(QWidget):
             filas_unicas.add(index.row())
         
         resultados = []
+        from src.utils.file_utils import limpiar_nombre_archivo
         for fila in filas_unicas:
             id_db = int(self.tabla_codigos.item(fila, 0).text())
             codigo_barras = self.tabla_codigos.item(fila, 1).text()
             id_unico = self.tabla_codigos.item(fila, 2).text()
             formato = self.tabla_codigos.item(fila, 3).text()
             nombre_empleado = self.tabla_codigos.item(fila, 4).text()
-            nombre_archivo = self.tabla_codigos.item(fila, 7).text() if self.tabla_codigos.item(fila, 7) else ""
+            # Generar nombre_archivo dinámicamente (no se muestra en la tabla)
+            nombre_empleado_limpio = limpiar_nombre_archivo(nombre_empleado or "sin_nombre")
+            nombre_archivo = f"{nombre_empleado_limpio}_{codigo_barras}.png"
             resultados.append((id_db, codigo_barras, id_unico, formato, nombre_empleado, nombre_archivo))
         
         return resultados

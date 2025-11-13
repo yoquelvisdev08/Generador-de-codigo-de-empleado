@@ -25,7 +25,7 @@ CARNETS_DIR.mkdir(parents=True, exist_ok=True)
 TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
 
 # Configuración de la aplicación
-APP_NAME = "Generador de Códigos de Barras"
+APP_NAME = "Generador de Códigos de Carnet"
 APP_AUTHOR = "by yoquelvisdev"
 WINDOW_WIDTH = 1200
 WINDOW_HEIGHT = 800

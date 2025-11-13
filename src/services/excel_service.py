@@ -52,6 +52,7 @@ class ExcelService:
             # Obtener estructura dinámica de la base de datos
             # Las columnas son: id, codigo_barras, id_unico, fecha_creacion, 
             # nombre_empleado, descripcion, formato, nombre_archivo
+            # Nota: nombre_archivo se excluye de la exportación de códigos de barras
             columnas = [
                 "ID",
                 "Código de Barras",
@@ -59,8 +60,7 @@ class ExcelService:
                 "Fecha de Creación",
                 "Nombre del Empleado",
                 "Código de Empleado",
-                "Formato",
-                "Archivo"
+                "Formato"
             ]
             
             # Estilo para encabezados
@@ -75,12 +75,14 @@ class ExcelService:
                 cell.font = header_font
                 cell.alignment = header_alignment
             
-            # Escribir datos
+            # Escribir datos (excluyendo nombre_archivo que es el último campo)
             for row_idx, codigo in enumerate(codigos, start=2):
                 # codigo es una tupla: (id, codigo_barras, id_unico, fecha_creacion, 
                 # nombre_empleado, descripcion, formato, nombre_archivo)
-                for col_idx, valor in enumerate(codigo, start=1):
-                    ws.cell(row=row_idx, column=col_idx, value=valor)
+                # Solo escribimos los primeros 7 campos (excluyendo nombre_archivo)
+                for col_idx in range(len(columnas)):
+                    valor = codigo[col_idx] if col_idx < len(codigo) else ""
+                    ws.cell(row=row_idx, column=col_idx + 1, value=valor)
             
             # Ajustar ancho de columnas
             for col_idx in range(1, len(columnas) + 1):
