@@ -119,7 +119,15 @@ class CarnetController:
         if not empleado:
             return
         
-        id_db, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo = empleado
+        # Desempaquetar: puede ser varios formatos
+        if len(empleado) >= 7:
+            id_db, codigo_barras, id_unico, nombre_empleado, descripcion, formato, nombre_archivo = empleado
+        elif len(empleado) >= 6:
+            id_db, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo = empleado
+            descripcion = ""
+        else:
+            return
+        
         codigo_path = IMAGES_DIR / nombre_archivo
         
         # Actualizar campos de variables dinámicamente
@@ -185,9 +193,22 @@ class CarnetController:
         
         # Variables automáticas (vienen de la base de datos)
         if self.empleado_actual:
-            id_db, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo = self.empleado_actual
+            # Desempaquetar: puede ser 6, 7 u 8 elementos
+            if len(self.empleado_actual) >= 8:
+                id_db, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo = self.empleado_actual
+            elif len(self.empleado_actual) >= 7:
+                id_db, codigo_barras, id_unico, nombre_empleado, descripcion, formato, nombre_archivo = self.empleado_actual
+            elif len(self.empleado_actual) >= 6:
+                id_db, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo = self.empleado_actual
+                descripcion = ""
+            else:
+                descripcion = ""
+                nombre_empleado = "SIN NOMBRE"
+                id_unico = ""
+                nombre_archivo = ""
+            
             nombre = nombre_empleado or "SIN NOMBRE"
-            codigo_path = IMAGES_DIR / nombre_archivo
+            codigo_path = IMAGES_DIR / nombre_archivo if nombre_archivo else Path("")
             
             # ID único siempre se obtiene del empleado
             if "id_unico" in variables_template:
@@ -213,6 +234,10 @@ class CarnetController:
             # Nombre por defecto del empleado (puede ser sobrescrito por usuario)
             if "nombre" in variables_template:
                 variables["nombre"] = variables_usuario.get("nombre", nombre) or nombre
+            
+            # Código de empleado (descripcion)
+            if "descripcion" in variables_template:
+                variables["descripcion"] = variables_usuario.get("descripcion", descripcion) or descripcion
         else:
             # Datos de ejemplo
             if "id_unico" in variables_template:
@@ -298,7 +323,18 @@ class CarnetController:
             nombre = "EJEMPLO"
             codigo_path = None
         else:
-            id_db, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo = self.empleado_actual
+            # Desempaquetar: puede ser 6, 7 u 8 elementos
+            if len(self.empleado_actual) >= 8:
+                id_db, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo = self.empleado_actual
+            elif len(self.empleado_actual) >= 7:
+                id_db, codigo_barras, id_unico, nombre_empleado, descripcion, formato, nombre_archivo = self.empleado_actual
+            elif len(self.empleado_actual) >= 6:
+                id_db, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo = self.empleado_actual
+            else:
+                nombre = "SIN NOMBRE"
+                codigo_path = None
+                return
+            
             nombre = nombre_empleado or "SIN NOMBRE"
             codigo_path = IMAGES_DIR / nombre_archivo
         
@@ -347,7 +383,24 @@ class CarnetController:
             )
             return
         
-        id_db, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo = empleado
+        # Desempaquetar: puede ser varios formatos
+        # Formato 1 (7 elementos): id, codigo_barras, id_unico, nombre_empleado, descripcion, formato, nombre_archivo
+        # Formato 2 (8 elementos): id, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo
+        # Formato 3 (6 elementos): id, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo
+        if len(empleado) >= 8:
+            id_db, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo = empleado
+        elif len(empleado) >= 7:
+            id_db, codigo_barras, id_unico, nombre_empleado, descripcion, formato, nombre_archivo = empleado
+        elif len(empleado) >= 6:
+            id_db, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo = empleado
+            descripcion = ""
+        else:
+            QMessageBox.warning(
+                self.employees_panel,
+                "Error",
+                "Datos de empleado incompletos"
+            )
+            return
         
         # Ruta del código de barras
         codigo_path = IMAGES_DIR / nombre_archivo
@@ -385,6 +438,8 @@ class CarnetController:
                     variables["codigo_barras"] = codigo_path
                 if "nombre" in variables_template:
                     variables["nombre"] = variables_usuario.get("nombre", nombre) or nombre
+                if "descripcion" in variables_template:
+                    variables["descripcion"] = variables_usuario.get("descripcion", descripcion) or descripcion
                 
                 # Logo y foto
                 if "logo" in variables_template:
@@ -563,7 +618,16 @@ class CarnetController:
         
         for empleado in empleados:
             try:
-                id_db, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo = empleado
+                # Desempaquetar: id, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo
+                if len(empleado) >= 8:
+                    id_db, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo = empleado
+                elif len(empleado) >= 6:
+                    # Compatibilidad con formato anterior
+                    id_db, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo = empleado
+                    descripcion = ""
+                else:
+                    errores += 1
+                    continue
                 
                 codigo_path = IMAGES_DIR / nombre_archivo
                 if not codigo_path.exists():
@@ -582,6 +646,8 @@ class CarnetController:
                         variables["codigo_barras"] = codigo_path
                     if "nombre" in variables_template:
                         variables["nombre"] = variables_usuario.get("nombre", nombre) or nombre
+                    if "descripcion" in variables_template:
+                        variables["descripcion"] = variables_usuario.get("descripcion", descripcion) or descripcion
                     
                     # Logo y foto
                     if "logo" in variables_template:

@@ -3,7 +3,8 @@ Panel de controles de diseño del carnet
 """
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QGroupBox, QPushButton, 
                              QLabel, QLineEdit, QSpinBox, QColorDialog, QFileDialog,
-                             QCheckBox, QComboBox, QHBoxLayout, QDoubleSpinBox, QScrollArea)
+                             QCheckBox, QComboBox, QHBoxLayout, QDoubleSpinBox, QScrollArea,
+                             QApplication)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
 from pathlib import Path
@@ -45,51 +46,56 @@ class CarnetControlsPanel(QWidget):
         scroll_layout = QVBoxLayout()
         scroll_widget.setLayout(scroll_layout)
         
-        # Grupo: Template HTML
-        grupo_html = QGroupBox("Template HTML")
-        layout_html = QVBoxLayout()
-        grupo_html.setLayout(layout_html)
+        # Grupo único: Template HTML y Variables
+        grupo_template = QGroupBox("Template HTML y Variables")
+        layout_template = QVBoxLayout()
+        grupo_template.setLayout(layout_template)
         
+        # Sección: Template HTML
         self.boton_cargar_html = QPushButton("Cargar Template HTML")
         self.boton_cargar_html.setStyleSheet("background-color: #007bff; color: white; font-weight: bold; padding: 8px;")
         self.boton_cargar_html.clicked.connect(self.cargar_template_html)
-        layout_html.addWidget(self.boton_cargar_html)
+        layout_template.addWidget(self.boton_cargar_html)
         
         self.boton_exportar_ejemplo = QPushButton("Exportar HTML de Ejemplo")
         self.boton_exportar_ejemplo.setStyleSheet("background-color: #28a745; color: white; font-weight: bold; padding: 8px;")
         self.boton_exportar_ejemplo.clicked.connect(self.exportar_html_ejemplo)
-        layout_html.addWidget(self.boton_exportar_ejemplo)
+        layout_template.addWidget(self.boton_exportar_ejemplo)
         
         self.label_template_cargado = QLabel("Ningún template HTML cargado")
         self.label_template_cargado.setWordWrap(True)
         self.label_template_cargado.setStyleSheet("color: #666; font-style: italic; padding: 5px;")
-        layout_html.addWidget(self.label_template_cargado)
+        layout_template.addWidget(self.label_template_cargado)
         
-        scroll_layout.addWidget(grupo_html)
+        # Separador visual
+        separador = QLabel("─────────────────────────────────────")
+        separador.setStyleSheet("color: #ddd; padding: 10px 0px;")
+        layout_template.addWidget(separador)
         
-        # Grupo: Variables (solo cuando se usa HTML) - se generará dinámicamente
-        self.grupo_variables = QGroupBox("Variables del Template")
-        self.layout_variables = QVBoxLayout()
-        self.grupo_variables.setLayout(self.layout_variables)
-        
+        # Sección: Variables del Template
         info_variables = QLabel(
             "Las variables se detectan automáticamente del template HTML.\n"
             "El estilo se modifica editando el archivo HTML directamente."
         )
         info_variables.setWordWrap(True)
         info_variables.setStyleSheet("color: #666; font-size: 10pt; padding: 5px;")
-        self.layout_variables.addWidget(info_variables)
+        layout_template.addWidget(info_variables)
         
         # Contenedor para campos de variables dinámicos
         self.variables_widget = QWidget()
         self.variables_layout = QVBoxLayout()
+        self.variables_layout.setSpacing(6)
+        self.variables_layout.setContentsMargins(10, 10, 10, 10)
         self.variables_widget.setLayout(self.variables_layout)
-        self.layout_variables.addWidget(self.variables_widget)
+        layout_template.addWidget(self.variables_widget)
         
         # Diccionario para almacenar los campos de variables dinámicos
         self.campos_variables = {}
         
-        scroll_layout.addWidget(self.grupo_variables)
+        # Guardar referencia al layout de variables para uso en otros métodos
+        self.layout_variables = layout_template
+        
+        scroll_layout.addWidget(grupo_template)
         
         # Grupo: Logo (solo para template PIL, oculto cuando se usa HTML)
         grupo_logo = QGroupBox("Logo")
@@ -416,9 +422,8 @@ class CarnetControlsPanel(QWidget):
             if widget.title() in ["Logo", "Fondo", "Nombre del Empleado", "Código de Barras", "Información Adicional"]:
                 widget.setVisible(not self.usar_html)
         
-        # Mostrar grupo de variables cuando se usa HTML
-        if hasattr(self, 'grupo_variables'):
-            self.grupo_variables.setVisible(self.usar_html)
+        # Mostrar grupo de template cuando se usa HTML (ya está siempre visible, pero podemos ajustar si es necesario)
+        # El grupo template siempre está visible, solo ocultamos los controles PIL
     
     def _on_variable_changed(self):
         """Se ejecuta cuando cambia una variable"""
@@ -431,21 +436,42 @@ class CarnetControlsPanel(QWidget):
     
     def _generar_campos_variables(self):
         """Genera campos de variables dinámicamente según el template HTML"""
-        # Limpiar campos existentes
+        # Limpiar campos existentes de forma más agresiva
         for campo in self.campos_variables.values():
             if isinstance(campo, dict):
                 # Si es un diccionario (variable de imagen), eliminar los widgets
                 if "campo" in campo:
+                    campo["campo"].setParent(None)
                     campo["campo"].deleteLater()
             else:
+                campo.setParent(None)
                 campo.deleteLater()
         self.campos_variables.clear()
         
-        # Limpiar layout
+        # Limpiar layout completamente - eliminar todos los items
         while self.variables_layout.count():
             item = self.variables_layout.takeAt(0)
+            if item is None:
+                continue
             if item.widget():
-                item.widget().deleteLater()
+                widget = item.widget()
+                widget.setParent(None)
+                widget.deleteLater()
+            elif item.layout():
+                layout = item.layout()
+                if layout:
+                    while layout.count():
+                        sub_item = layout.takeAt(0)
+                        if sub_item is None:
+                            continue
+                        widget = sub_item.widget()
+                        if widget:
+                            widget.setParent(None)
+                            widget.deleteLater()
+                    layout.setParent(None)
+        
+        # Forzar actualización
+        QApplication.processEvents()
         
         # Si no hay template HTML cargado, no generar campos
         if not self.usar_html or not self.html_template.ruta_html:
@@ -455,62 +481,177 @@ class CarnetControlsPanel(QWidget):
         variables = self.html_template.detectar_variables()
         
         # Variables de tipo imagen (permiten subir archivos)
-        variables_imagen = {"logo", "foto"}
+        variables_imagen = {"logo", "foto", "codigo_barras"}
         
         # Variables automáticas de solo lectura (vienen de la base de datos)
         variables_automaticas = {"id_unico", "codigo_barras"}
         
         # Ordenar variables para mostrar primero las más comunes
-        orden_preferido = ["logo", "nombre", "cedula", "cargo", "empresa", "web", "id_unico", "codigo_barras", "foto"]
+        orden_preferido = ["logo", "nombre", "cedula", "cargo", "empresa", "web", "id_unico", "codigo_barras", "foto", "descripcion"]
         variables_ordenadas = sorted(
             variables,
             key=lambda x: (orden_preferido.index(x) if x in orden_preferido else 999, x)
         )
         
+        # Estilos modernos para campos
+        estilo_campo_texto = """
+            QLineEdit {
+                background-color: #ffffff;
+                border: 2px solid #e0e0e0;
+                border-radius: 6px;
+                padding: 10px 12px;
+                font-size: 11pt;
+                color: #333333;
+                min-height: 20px;
+            }
+            QLineEdit:focus {
+                border: 2px solid #007bff;
+                background-color: #f8f9fa;
+            }
+            QLineEdit:hover {
+                border: 2px solid #c0c0c0;
+            }
+        """
+        
+        estilo_campo_readonly = """
+            QLineEdit {
+                background-color: #f5f5f5;
+                border: 2px solid #d0d0d0;
+                border-radius: 6px;
+                padding: 10px 12px;
+                font-size: 11pt;
+                color: #6c757d;
+                min-height: 20px;
+            }
+        """
+        
+        estilo_boton_primario = """
+            QPushButton {
+                background-color: #007bff;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 10px 20px;
+                font-weight: bold;
+                font-size: 10pt;
+                min-height: 20px;
+            }
+            QPushButton:hover {
+                background-color: #0056b3;
+            }
+            QPushButton:pressed {
+                background-color: #004085;
+            }
+        """
+        
+        estilo_boton_secundario = """
+            QPushButton {
+                background-color: #6c757d;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-weight: bold;
+                font-size: 10pt;
+                min-height: 20px;
+            }
+            QPushButton:hover {
+                background-color: #5a6268;
+            }
+            QPushButton:pressed {
+                background-color: #484f54;
+            }
+        """
+        
+        estilo_boton_peligro = """
+            QPushButton {
+                background-color: #dc3545;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-weight: bold;
+                font-size: 10pt;
+                min-height: 20px;
+            }
+            QPushButton:hover {
+                background-color: #c82333;
+            }
+            QPushButton:pressed {
+                background-color: #bd2130;
+            }
+        """
+        
         # Generar campos para cada variable
         for var in variables_ordenadas:
-            layout_var = QHBoxLayout()
+            # Contenedor vertical para cada variable
+            layout_var = QVBoxLayout()
+            layout_var.setSpacing(4)
+            layout_var.setContentsMargins(0, 4, 0, 4)
             
-            # Label con nombre de variable
-            label = QLabel(f"{var.capitalize()}:")
-            label.setMinimumWidth(100)
+            # Label con nombre de variable (arriba del campo)
+            label = QLabel(f"{var.replace('_', ' ').title()}:")
+            label.setStyleSheet("""
+                QLabel {
+                    font-weight: bold;
+                    font-size: 11pt;
+                    color: #ffffff;
+                    margin-bottom: 2px;
+                }
+            """)
             layout_var.addWidget(label)
             
             # Si es una variable de imagen, mostrar botón para cargar imagen
             if var in variables_imagen:
                 # Campo para mostrar la ruta
                 campo_ruta = QLineEdit()
+                campo_ruta.setMinimumHeight(40)
                 if var == "codigo_barras":
                     campo_ruta.setPlaceholderText("Se genera automáticamente desde la base de datos")
                 elif var == "foto":
                     campo_ruta.setPlaceholderText("Ninguna foto seleccionada (opcional)")
                 else:
                     campo_ruta.setPlaceholderText("Ninguna imagen seleccionada")
-                campo_ruta.setReadOnly(var in variables_automaticas)  # Solo lectura si es automática
+                campo_ruta.setReadOnly(var in variables_automaticas)
+                
                 if var in variables_automaticas:
-                    campo_ruta.setStyleSheet("background-color: #e9ecef; color: #6c757d;")
+                    campo_ruta.setStyleSheet(estilo_campo_readonly)
                 else:
-                    campo_ruta.setStyleSheet("background-color: #f5f5f5;")
+                    campo_ruta.setStyleSheet(estilo_campo_texto)
+                
                 layout_var.addWidget(campo_ruta)
                 
-                # Botón para cargar imagen (solo si no es automática)
+                # Botones debajo del campo (solo si no es automática)
                 if var not in variables_automaticas:
+                    layout_botones = QHBoxLayout()
+                    layout_botones.setSpacing(10)
+                    layout_botones.setContentsMargins(0, 0, 0, 0)
+                    
                     boton_cargar = QPushButton("Cargar Imagen")
-                    boton_cargar.setStyleSheet("background-color: #007bff; color: white; padding: 5px;")
+                    boton_cargar.setStyleSheet(estilo_boton_primario)
                     boton_cargar.clicked.connect(lambda checked, v=var, c=campo_ruta: self._cargar_imagen_variable(v, c))
                     
-                    # Botón para limpiar
-                    boton_limpiar = QPushButton("✕")
-                    boton_limpiar.setStyleSheet("background-color: #dc3545; color: white; padding: 5px; min-width: 30px;")
+                    boton_limpiar = QPushButton("Limpiar")
+                    boton_limpiar.setStyleSheet(estilo_boton_peligro)
                     boton_limpiar.setToolTip("Limpiar imagen")
                     boton_limpiar.clicked.connect(lambda checked, v=var, c=campo_ruta: self._limpiar_imagen_variable(v, c))
                     
-                    layout_var.addWidget(boton_cargar)
-                    layout_var.addWidget(boton_limpiar)
+                    layout_botones.addWidget(boton_cargar)
+                    layout_botones.addWidget(boton_limpiar)
+                    layout_botones.addStretch()
+                    
+                    layout_var.addLayout(layout_botones)
                 else:
                     # Para variables automáticas, mostrar un label informativo
-                    label_info = QLabel("(Automático)")
-                    label_info.setStyleSheet("color: #6c757d; font-style: italic; font-size: 10pt;")
+                    label_info = QLabel("(Se obtiene automáticamente de la base de datos)")
+                    label_info.setStyleSheet("""
+                        QLabel {
+                            color: #6c757d;
+                            font-style: italic;
+                            font-size: 9pt;
+                            padding: 4px 0px;
+                        }
+                    """)
                     layout_var.addWidget(label_info)
                 
                 # Guardar tanto el campo como el Path
@@ -518,19 +659,30 @@ class CarnetControlsPanel(QWidget):
             else:
                 # Campo de texto normal
                 campo = QLineEdit()
+                campo.setMinimumHeight(40)
+                
                 if var in variables_automaticas:
                     # Variable automática: solo lectura
                     campo.setReadOnly(True)
                     campo.setPlaceholderText(f"{{{{{var}}}}} (se obtiene de la base de datos)")
-                    campo.setStyleSheet("background-color: #e9ecef; color: #6c757d;")
-                    # Agregar label informativo
-                    label_info = QLabel("(Automático)")
-                    label_info.setStyleSheet("color: #6c757d; font-style: italic; font-size: 10pt;")
+                    campo.setStyleSheet(estilo_campo_readonly)
+                    
+                    # Agregar label informativo debajo
+                    label_info = QLabel("(Se obtiene automáticamente de la base de datos)")
+                    label_info.setStyleSheet("""
+                        QLabel {
+                            color: #6c757d;
+                            font-style: italic;
+                            font-size: 9pt;
+                            padding: 4px 0px;
+                        }
+                    """)
                     layout_var.addWidget(campo)
                     layout_var.addWidget(label_info)
                 else:
                     # Variable editable
-                    campo.setPlaceholderText(f"{{{{{var}}}}}")
+                    campo.setPlaceholderText(f"Ingrese el valor para {var.replace('_', ' ')}")
+                    campo.setStyleSheet(estilo_campo_texto)
                     campo.textChanged.connect(self._on_variable_changed)
                     layout_var.addWidget(campo)
                 
@@ -541,8 +693,12 @@ class CarnetControlsPanel(QWidget):
         # Si no hay variables, mostrar mensaje
         if not variables:
             label_vacio = QLabel("No se encontraron variables en el template")
-            label_vacio.setStyleSheet("color: #999; font-style: italic;")
+            label_vacio.setStyleSheet("color: #999; font-style: italic; padding: 10px;")
             self.variables_layout.addWidget(label_vacio)
+        
+        # Forzar actualización del layout
+        self.variables_widget.updateGeometry()
+        QApplication.processEvents()
     
     def _cargar_imagen_variable(self, variable: str, campo_ruta: QLineEdit):
         """Abre diálogo para cargar una imagen para una variable"""

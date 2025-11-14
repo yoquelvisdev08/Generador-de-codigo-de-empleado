@@ -144,7 +144,7 @@ class CarnetEmployeesPanel(QWidget):
         Obtiene el empleado seleccionado
         
         Returns:
-            Tupla con (id, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo) o None
+            Tupla con (id, codigo_barras, id_unico, nombre_empleado, descripcion, formato, nombre_archivo) o None
         """
         fila = self.tabla_empleados.currentRow()
         if fila < 0:
@@ -152,13 +152,13 @@ class CarnetEmployeesPanel(QWidget):
         
         id_db = int(self.tabla_empleados.item(fila, 0).text())
         nombre_empleado = self.tabla_empleados.item(fila, 1).text()
-        codigo_empleado = self.tabla_empleados.item(fila, 2).text()  # Código de Empleado
+        codigo_empleado = self.tabla_empleados.item(fila, 2).text()  # Código de Empleado (descripcion)
         id_unico = self.tabla_empleados.item(fila, 3).text()
         codigo_barras = self.tabla_empleados.item(fila, 4).text()
         formato = self.tabla_empleados.item(fila, 5).text()
         nombre_archivo = self.tabla_empleados.item(fila, 6).text()
         
-        return id_db, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo
+        return id_db, codigo_barras, id_unico, nombre_empleado, codigo_empleado, formato, nombre_archivo
     
     def obtener_empleados_seleccionados(self):
         """

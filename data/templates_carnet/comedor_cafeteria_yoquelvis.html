@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carnet de Empleado</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            width: 637px;
+            height: 1013px;
+            font-family: 'Arial', 'Helvetica', sans-serif;
+            background: #ffffff;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .card {
+            width: 100%;
+            height: 100%;
+            background: #ffffff;
+            border: 2px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 40px 40px 5px;
+        }
+        
+        .logo-container img {
+            max-width: 480px;
+            max-height: 480px;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+        }
+        
+        .logo-container .no-logo {
+            display: none;
+            color: #999;
+            font-size: 18px;
+        }
+        
+        .name-section {
+            width: 100%;
+            text-align: center;
+            padding: 0 40px 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .name-line {
+            font-size: 40px;
+            font-weight: bold;
+            color: #000000;
+            line-height: 1.2;
+            margin-bottom: 5px;
+        }
+        
+        .apellido-line {
+            font-size: 40px;
+            font-weight: bold;
+            color: #000000;
+            line-height: 1.2;
+            margin-bottom: 15px;
+        }
+        
+        .codigo-empleado {
+            font-size: 36px;
+            font-weight: bold;
+            color: #000000;
+            line-height: 1.2;
+            margin-bottom: 30px;
+        }
+        
+        .barcode-section {
+            width: 100%;
+            text-align: center;
+            padding: 20px 40px 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-top: auto;
+        }
+        
+        .barcode-section img {
+            max-width: 100%;
+            height: auto;
+            max-height: 220px;
+            margin-bottom: 10px;
+        }
+        
+        .barcode-section .code {
+            display: none;
+        }
+    </style>
+    <script>
+        function handleLogoError() {
+            var img = document.getElementById('logo-image');
+            var text = document.getElementById('no-logo-text');
+            if (img && text) {
+                img.style.display = 'none';
+                text.style.display = 'block';
+            }
+        }
+        
+        function handleBarcodeError() {
+            var img = document.getElementById('barcode-image');
+            if (img) {
+                img.style.display = 'none';
+            }
+        }
+        
+        function separarNombreApellido() {
+            var nombreCompleto = '{{nombre}}' || '';
+            var nombreElement = document.getElementById('nombre-line');
+            var apellidoElement = document.getElementById('apellido-line');
+            
+            if (!nombreCompleto) {
+                if (nombreElement) nombreElement.textContent = '';
+                if (apellidoElement) apellidoElement.textContent = '';
+                return;
+            }
+            
+            // Buscar el primer espacio para separar nombre y apellido
+            var espacioIndex = nombreCompleto.indexOf(' ');
+            
+            if (espacioIndex > 0) {
+                // Hay un espacio, separar nombre y apellido
+                var nombre = nombreCompleto.substring(0, espacioIndex).trim();
+                var apellido = nombreCompleto.substring(espacioIndex + 1).trim();
+                
+                if (nombreElement) nombreElement.textContent = nombre;
+                if (apellidoElement) apellidoElement.textContent = apellido;
+            } else {
+                // No hay espacio, solo mostrar el nombre completo en la primera línea
+                if (nombreElement) nombreElement.textContent = nombreCompleto;
+                if (apellidoElement) apellidoElement.textContent = '';
+            }
+        }
+        
+        // Ejecutar cuando el DOM esté listo
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', separarNombreApellido);
+        } else {
+            separarNombreApellido();
+        }
+    </script>
+</head>
+<body>
+    <div class="card">
+        <div class="logo-container">
+            <img src="{{logo}}" alt="Logo" id="logo-image" onerror="handleLogoError();">
+            <span id="no-logo-text" class="no-logo">Sin logo</span>
+        </div>
+        <div class="name-section">
+            <div class="name-line" id="nombre-line"></div>
+            <div class="apellido-line" id="apellido-line"></div>
+            <div class="codigo-empleado" id="codigo-empleado-line">{{descripcion}}</div>
+            <div class="barcode-section">
+                <img src="{{codigo_barras}}" alt="Código de barras" id="barcode-image" onerror="handleBarcodeError();">
+                <div class="code">{{id_unico}}</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
