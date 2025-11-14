@@ -3,7 +3,8 @@ Controlador para el editor de carnet
 """
 from pathlib import Path
 from typing import Optional
-from PyQt6.QtWidgets import QMessageBox, QFileDialog
+from PyQt6.QtWidgets import QMessageBox, QApplication
+from PyQt6.QtCore import Qt
 from PIL import Image
 
 from src.models.database import DatabaseManager
@@ -82,7 +83,6 @@ class CarnetController:
         self.employees_panel.boton_vista_previa.clicked.connect(self.mostrar_vista_previa_empleado)
         self.employees_panel.boton_generar_individual.clicked.connect(self.generar_carnet_individual)
         self.employees_panel.boton_generar_masivo.clicked.connect(self.generar_carnets_masivos)
-        self.employees_panel.boton_exportar.clicked.connect(self.exportar_carnets)
         self.employees_panel.campo_busqueda.textChanged.connect(self.buscar_empleados)
     
     def _cargar_empleados(self):
@@ -383,6 +383,14 @@ class CarnetController:
             )
             return
         
+        # Mostrar diálogo de progreso
+        from src.views.widgets.progress_dialog import ProgressDialog
+        progress = ProgressDialog("Generando Carnet", self.employees_panel)
+        progress.setWindowModality(Qt.WindowModality.ApplicationModal)
+        progress.actualizar_progreso(0, 1, "Preparando generación...")
+        progress.show()
+        QApplication.processEvents()
+        
         # Desempaquetar: puede ser varios formatos
         # Formato 1 (7 elementos): id, codigo_barras, id_unico, nombre_empleado, descripcion, formato, nombre_archivo
         # Formato 2 (8 elementos): id, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo
@@ -481,6 +489,9 @@ class CarnetController:
                 logger.info(f"Variables inyectadas: {list(variables.keys())}")
                 logger.info(f"Tamaño del HTML: {len(html_content)} caracteres")
                 
+                progress.actualizar_progreso(0, 1, "Renderizando carnet...")
+                QApplication.processEvents()
+                
                 # Renderizar HTML a imagen con alta calidad (600 DPI)
                 imagen = self.html_renderer.renderizar_html_a_imagen(
                     html_content=html_content,
@@ -495,12 +506,16 @@ class CarnetController:
                     logger.error("No se pudo renderizar la imagen desde HTML")
                 
                 if not imagen:
+                    progress.close()
                     QMessageBox.warning(
                         self.employees_panel,
                         "Error",
                         "No se pudo renderizar el carnet desde el HTML"
                     )
                     return
+                
+                progress.actualizar_progreso(0, 1, "Guardando carnet...")
+                QApplication.processEvents()
                 
                 # Guardar carnet con máxima calidad PNG
                 from src.utils.file_utils import limpiar_nombre_archivo
@@ -510,6 +525,10 @@ class CarnetController:
                 
                 # Guardar con máxima calidad (600 DPI, sin optimización, compresión mínima)
                 imagen.save(ruta_carnet, "PNG", dpi=(600, 600), optimize=False, compress_level=1)
+                
+                progress.actualizar_progreso(1, 1, "¡Carnet generado exitosamente!")
+                QApplication.processEvents()
+                progress.close()
                 
                 QMessageBox.information(
                     self.employees_panel,
@@ -543,19 +562,27 @@ class CarnetController:
                 nombre_archivo_carnet = f"carnet_{nombre_limpio}_{id_unico}.png"
                 ruta_carnet = CARNETS_DIR / nombre_archivo_carnet
                 
+                progress.actualizar_progreso(0, 1, "Guardando carnet...")
+                QApplication.processEvents()
+                
                 if self.designer.guardar_carnet(imagen, ruta_carnet):
+                    progress.actualizar_progreso(1, 1, "¡Carnet generado exitosamente!")
+                    QApplication.processEvents()
+                    progress.close()
                     QMessageBox.information(
                         self.employees_panel,
                         "Éxito",
                         f"Carnet generado exitosamente:\n{ruta_carnet}"
                     )
                 else:
+                    progress.close()
                     QMessageBox.warning(
                         self.employees_panel,
                         "Error",
                         "No se pudo guardar el carnet"
                     )
             except Exception as e:
+                progress.close()
                 QMessageBox.critical(
                     self.employees_panel,
                     "Error",
@@ -563,14 +590,14 @@ class CarnetController:
                 )
     
     def generar_carnets_masivos(self):
-        """Genera carnets para todos los empleados seleccionados"""
-        empleados = self.employees_panel.obtener_empleados_seleccionados()
+        """Genera carnets para todos los empleados de la lista"""
+        empleados = self.employees_panel.obtener_todos_empleados()
         
         if not empleados:
             QMessageBox.warning(
                 self.employees_panel,
                 "Advertencia",
-                "Por favor seleccione uno o más empleados de la lista"
+                "No hay empleados en la lista para generar carnets"
             )
             return
         
@@ -584,8 +611,16 @@ class CarnetController:
         if respuesta != QMessageBox.StandardButton.Yes:
             return
         
+        # Mostrar diálogo de progreso
+        from src.views.widgets.progress_dialog import ProgressDialog
+        progress = ProgressDialog("Generando Carnets Masivos", self.employees_panel)
+        progress.setWindowModality(Qt.WindowModality.ApplicationModal)
+        progress.show()
+        QApplication.processEvents()
+        
         exitosos = 0
         errores = 0
+        total = len(empleados)
         
         # Verificar si se está usando template HTML
         usar_html = self.controls_panel.usar_template_html()
@@ -616,7 +651,22 @@ class CarnetController:
             # Obtener template PIL
             template = self.controls_panel.obtener_template_actualizado()
         
-        for empleado in empleados:
+        for indice, empleado in enumerate(empleados, 1):
+            # Actualizar progreso
+            nombre_empleado_temp = ""
+            try:
+                if len(empleado) >= 5:
+                    nombre_empleado_temp = empleado[4] if len(empleado) >= 5 else "empleado"
+            except:
+                nombre_empleado_temp = "empleado"
+            
+            faltantes = total - indice + 1
+            progress.actualizar_progreso(
+                indice - 1, 
+                total, 
+                f"Generando carnet {indice} de {total}\nFaltan {faltantes} carnet(s) por generar\nEmpleado: {nombre_empleado_temp}"
+            )
+            QApplication.processEvents()
             try:
                 # Desempaquetar: id, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo
                 if len(empleado) >= 8:
@@ -723,44 +773,14 @@ class CarnetController:
                 logger = logging.getLogger(__name__)
                 logger.error(f"Error al generar carnet para {nombre_empleado}: {e}")
         
+        # Cerrar diálogo de progreso
+        progress.actualizar_progreso(total, total, "¡Generación completada!")
+        QApplication.processEvents()
+        progress.close()
+        
         mensaje = f"Generación completada:\n{exitosos} carnet(s) generado(s)"
         if errores > 0:
             mensaje += f"\n{errores} error(es)"
         
         QMessageBox.information(self.employees_panel, "Resultado", mensaje)
-    
-    def exportar_carnets(self):
-        """Exporta los carnets generados"""
-        if not CARNETS_DIR.exists() or not any(CARNETS_DIR.glob("*.png")):
-            QMessageBox.warning(
-                self.employees_panel,
-                "Advertencia",
-                "No hay carnets generados para exportar"
-            )
-            return
-        
-        directorio = QFileDialog.getExistingDirectory(
-            self.employees_panel,
-            "Seleccionar directorio para exportar"
-        )
-        
-        if not directorio:
-            return
-        
-        # Copiar carnets al directorio seleccionado
-        import shutil
-        copiados = 0
-        
-        for carnet in CARNETS_DIR.glob("*.png"):
-            try:
-                shutil.copy2(carnet, Path(directorio) / carnet.name)
-                copiados += 1
-            except Exception as e:
-                pass
-        
-        QMessageBox.information(
-            self.employees_panel,
-            "Éxito",
-            f"{copiados} carnet(s) exportado(s) a:\n{directorio}"
-        )
 

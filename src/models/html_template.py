@@ -14,7 +14,7 @@ class HTMLTemplate:
     nombre: str = "Template HTML por Defecto"
     ruta_html: Optional[str] = None
     ancho: int = 637    # 54mm a 300 DPI
-    alto: int = 1010   # 85.6mm a 300 DPI
+    alto: int = 1013   # 85.6mm a 300 DPI (ajustado para coincidir con el HTML)
     dpi: int = 300
     
     def cargar_desde_archivo(self, ruta_html: Path) -> bool:

@@ -90,10 +90,6 @@ class CarnetEmployeesPanel(QWidget):
         self.boton_generar_masivo.setStyleSheet("background-color: #007bff; color: white;")
         layout_acciones.addWidget(self.boton_generar_masivo)
         
-        self.boton_exportar = QPushButton("Exportar Carnets")
-        self.boton_exportar.setStyleSheet("background-color: #ffc107; color: black;")
-        layout_acciones.addWidget(self.boton_exportar)
-        
         layout_acciones.addStretch()
         layout.addWidget(grupo_acciones)
     
@@ -165,7 +161,8 @@ class CarnetEmployeesPanel(QWidget):
         Obtiene todos los empleados seleccionados
         
         Returns:
-            Lista de tuplas con datos de empleados
+            Lista de tuplas con datos de empleados en formato:
+            (id, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo)
         """
         filas_seleccionadas = self.tabla_empleados.selectedIndexes()
         if not filas_seleccionadas:
@@ -179,13 +176,41 @@ class CarnetEmployeesPanel(QWidget):
         for fila in filas_unicas:
             id_db = int(self.tabla_empleados.item(fila, 0).text())
             nombre_empleado = self.tabla_empleados.item(fila, 1).text()
-            codigo_empleado = self.tabla_empleados.item(fila, 2).text()  # Código de Empleado
+            codigo_empleado = self.tabla_empleados.item(fila, 2).text()  # Código de Empleado (descripcion)
             id_unico = self.tabla_empleados.item(fila, 3).text()
             codigo_barras = self.tabla_empleados.item(fila, 4).text()
             formato = self.tabla_empleados.item(fila, 5).text()
             nombre_archivo = self.tabla_empleados.item(fila, 6).text()
             
-            resultados.append((id_db, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo))
+            # Formato completo: (id, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo)
+            # fecha_creacion no está en la tabla, usar cadena vacía
+            resultados.append((id_db, codigo_barras, id_unico, "", nombre_empleado, codigo_empleado, formato, nombre_archivo))
+        
+        return resultados
+    
+    def obtener_todos_empleados(self):
+        """
+        Obtiene todos los empleados de la tabla (sin importar si están seleccionados o no)
+        
+        Returns:
+            Lista de tuplas con datos de empleados en formato:
+            (id, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo)
+        """
+        resultados = []
+        total_filas = self.tabla_empleados.rowCount()
+        
+        for fila in range(total_filas):
+            id_db = int(self.tabla_empleados.item(fila, 0).text())
+            nombre_empleado = self.tabla_empleados.item(fila, 1).text()
+            codigo_empleado = self.tabla_empleados.item(fila, 2).text()  # Código de Empleado (descripcion)
+            id_unico = self.tabla_empleados.item(fila, 3).text()
+            codigo_barras = self.tabla_empleados.item(fila, 4).text()
+            formato = self.tabla_empleados.item(fila, 5).text()
+            nombre_archivo = self.tabla_empleados.item(fila, 6).text()
+            
+            # Formato completo: (id, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo)
+            # fecha_creacion no está en la tabla, usar cadena vacía
+            resultados.append((id_db, codigo_barras, id_unico, "", nombre_empleado, codigo_empleado, formato, nombre_archivo))
         
         return resultados
     

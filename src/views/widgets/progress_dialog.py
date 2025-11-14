@@ -19,7 +19,7 @@ class ProgressDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(titulo)
         self.setModal(True)
-        self.setFixedSize(400, 150)
+        self.setFixedSize(450, 180)
         
         layout = QVBoxLayout()
         layout.setSpacing(10)
@@ -28,6 +28,8 @@ class ProgressDialog(QDialog):
         # Etiqueta de mensaje
         self.label_mensaje = QLabel("Iniciando...")
         self.label_mensaje.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.label_mensaje.setWordWrap(True)
+        self.label_mensaje.setMinimumHeight(60)
         layout.addWidget(self.label_mensaje)
         
         # Barra de progreso

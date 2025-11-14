@@ -56,29 +56,49 @@ class HTMLRenderer(QObject):
                 logger.error("No hay instancia de QApplication")
                 return None
             
-            # Crear un widget padre fuera de pantalla (visible pero fuera de la vista)
-            # QWebEngineView necesita ser visible para renderizar correctamente
+            # Crear widget padre como ventana independiente pero fuera de la pantalla
+            # QWebEngineView DEBE estar visible para renderizar correctamente
             parent_widget = QWidget()
             parent_widget.setFixedSize(ancho, alto)
-            # Mover fuera de la pantalla en lugar de usar WA_DontShowOnScreen
-            parent_widget.move(-10000, -10000)  # Fuera de la vista
-            parent_widget.show()  # Hacer visible para que renderice
+            parent_widget.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnBottomHint)
+            parent_widget.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+            
+            # Mover fuera de la pantalla visible
+            screen = QApplication.primaryScreen()
+            if screen:
+                screen_geometry = screen.geometry()
+                parent_widget.move(screen_geometry.width() + 2000, screen_geometry.height() + 2000)
+            else:
+                parent_widget.move(-20000, -20000)
+            
+            # Hacer visible (pero fuera de la vista del usuario)
+            parent_widget.show()
+            parent_widget.lower()  # Enviar al fondo inmediatamente
             
             # Crear QWebEngineView como hijo del widget padre
             web_view = QWebEngineView(parent_widget)
             web_view.setFixedSize(ancho, alto)
-            web_view.show()  # Hacer visible para que renderice
+            web_view.show()  # Debe estar visible para renderizar
             
             # Configurar para renderizado de alta calidad
             settings = web_view.settings()
             settings.setAttribute(settings.WebAttribute.LocalContentCanAccessRemoteUrls, True)
             settings.setAttribute(settings.WebAttribute.JavascriptEnabled, True)
             
+            # Deshabilitar scrollbars y asegurar que el tamaño sea exacto
+            page_settings = web_view.page().settings()
+            page_settings.setAttribute(page_settings.WebAttribute.ShowScrollBars, False)
+            
             # Configurar para alta calidad de renderizado
             # Habilitar aceleración de hardware si está disponible
             settings.setAttribute(settings.WebAttribute.Accelerated2dCanvasEnabled, True)
-            # Mejorar calidad de fuentes
-            settings.setAttribute(settings.WebAttribute.LocalFontsEnabled, True)
+            # Mejorar calidad de fuentes (si el atributo está disponible)
+            try:
+                settings.setAttribute(settings.WebAttribute.LocalFontsEnabled, True)
+            except AttributeError:
+                # LocalFontsEnabled no está disponible en esta versión de PyQt6
+                logger.debug("LocalFontsEnabled no está disponible en esta versión de PyQt6")
+                pass
             
             # Configurar zoom para alta resolución (si el DPI es alto, renderizar más grande)
             if dpi > 300:
@@ -134,34 +154,54 @@ class HTMLRenderer(QObject):
                 return None
             
             # Esperar un poco más para que se renderice completamente
-            # Usar múltiples loops para asegurar renderizado completo
-            for i in range(3):  # 3 intentos de espera
+            # QWebEngineView necesita tiempo adicional para renderizar el contenido
+            logger.info("Esperando renderizado completo del HTML...")
+            for i in range(5):  # 5 intentos de espera (más tiempo)
                 loop2 = QEventLoop()
                 timer2 = QTimer()
                 timer2.timeout.connect(loop2.quit)
                 timer2.setSingleShot(True)
-                timer2.start(1000)  # Esperar 1 segundo por intento
+                timer2.start(1500)  # Esperar 1.5 segundos por intento
                 loop2.exec()
                 
                 # Procesar eventos entre cada espera
                 QApplication.processEvents()
             
-            # Procesar eventos finales múltiples veces
-            for _ in range(10):
+            # Procesar eventos finales múltiples veces para asegurar renderizado
+            for _ in range(20):
                 QApplication.processEvents()
             
-            # Asegurar que el widget esté completamente renderizado
+            # Forzar actualización del widget
             web_view.update()
+            web_view.repaint()
+            QApplication.processEvents()
+            
+            # Esperar un poco más después de la actualización
+            QTimer.singleShot(500, lambda: None)
             QApplication.processEvents()
             
             # Renderizar a imagen
             logger.info("Capturando imagen del QWebEngineView...")
             
-            # Verificar que el widget esté visible y tenga contenido
+            # Verificar que el widget esté visible
             if not web_view.isVisible():
                 logger.warning("QWebEngineView no está visible, intentando mostrar...")
                 web_view.show()
                 QApplication.processEvents()
+                # Esperar después de mostrar
+                QTimer.singleShot(500, lambda: None)
+                QApplication.processEvents()
+            
+            # Asegurar que el widget esté completamente visible y renderizado
+            # NO usar raise_() para evitar que aparezca en pantalla
+            parent_widget.show()
+            web_view.show()
+            parent_widget.lower()  # Mantener al fondo
+            QApplication.processEvents()
+            
+            # Esperar un momento adicional para asegurar renderizado completo
+            QTimer.singleShot(300, lambda: None)
+            QApplication.processEvents()
             
             # Intentar capturar la imagen
             imagen = web_view.grab()
@@ -176,7 +216,14 @@ class HTMLRenderer(QObject):
                 
                 if imagen.isNull():
                     logger.error("Segundo intento falló también")
+                    # Ocultar antes de retornar
+                    parent_widget.hide()
                     return None
+            
+            # Ocultar inmediatamente después de capturar
+            parent_widget.lower()
+            parent_widget.hide()
+            QApplication.processEvents()
             
             logger.info(f"Imagen capturada (antes de escalar): {imagen.width()}x{imagen.height()}")
             
