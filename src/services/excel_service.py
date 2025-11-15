@@ -27,12 +27,13 @@ class ExcelService:
         """
         self.db_manager = db_manager
     
-    def exportar_a_excel(self, ruta_archivo: Path) -> Tuple[bool, str]:
+    def exportar_a_excel(self, ruta_archivo: Path, formato_por_defecto: Optional[str] = None) -> Tuple[bool, str]:
         """
         Exporta todos los datos de la base de datos a un archivo Excel
         
         Args:
             ruta_archivo: Ruta donde guardar el archivo Excel
+            formato_por_defecto: Formato a usar si algún registro no tiene formato (opcional)
             
         Returns:
             Tupla (éxito, mensaje)
@@ -82,6 +83,9 @@ class ExcelService:
                 # Solo escribimos los primeros 7 campos (excluyendo nombre_archivo)
                 for col_idx in range(len(columnas)):
                     valor = codigo[col_idx] if col_idx < len(codigo) else ""
+                    # Si es la columna de formato (índice 6) y está vacío, usar formato por defecto
+                    if col_idx == 6 and (not valor or valor == ""):
+                        valor = formato_por_defecto or "Code128"
                     ws.cell(row=row_idx, column=col_idx + 1, value=valor)
             
             # Ajustar ancho de columnas
@@ -98,12 +102,13 @@ class ExcelService:
             logger.error(f"Error al exportar a Excel: {e}", exc_info=True)
             return False, f"Error al exportar: {str(e)}"
     
-    def generar_excel_ejemplo(self, ruta_archivo: Path) -> Tuple[bool, str]:
+    def generar_excel_ejemplo(self, ruta_archivo: Path, formato_por_defecto: Optional[str] = None) -> Tuple[bool, str]:
         """
         Genera un archivo Excel de ejemplo con el formato esperado
         
         Args:
             ruta_archivo: Ruta donde guardar el archivo Excel de ejemplo
+            formato_por_defecto: Formato a usar en todas las filas de ejemplo (opcional)
             
         Returns:
             Tupla (éxito, mensaje)
@@ -117,8 +122,11 @@ class ExcelService:
             columnas = [
                 "Nombre del Empleado",  # Obligatorio
                 "Código de Empleado",   # Obligatorio
-                "Formato"                # Opcional (por defecto Code128)
+                "Formato (opcional)"    # Opcional (por defecto Code128)
             ]
+            
+            # Usar formato por defecto o Code128
+            formato_a_usar = formato_por_defecto or "Code128"
             
             # Estilo para encabezados
             header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
@@ -132,24 +140,17 @@ class ExcelService:
                 cell.font = header_font
                 cell.alignment = header_alignment
             
-            # Datos de ejemplo
+            # Datos de ejemplo (todos con el formato seleccionado)
             datos_ejemplo = [
-                ("Juan Pérez", "EMP001", "Code128"),
-                ("María García", "EMP002", "Code128"),
-                ("Carlos López", "EMP003", "EAN13"),
+                ("Juan Pérez", "EMP001", formato_a_usar),
+                ("María García", "EMP002", formato_a_usar),
+                ("Carlos López", "EMP003", formato_a_usar),
             ]
             
             # Escribir datos de ejemplo
             for row_idx, datos in enumerate(datos_ejemplo, start=2):
                 for col_idx, valor in enumerate(datos, start=1):
                     ws.cell(row=row_idx, column=col_idx, value=valor)
-            
-            # Agregar nota informativa
-            nota_row = len(datos_ejemplo) + 3
-            ws.cell(row=nota_row, column=1, value="NOTAS:")
-            ws.cell(row=nota_row + 1, column=1, value="- 'Nombre del Empleado' y 'Código de Empleado' son obligatorios")
-            ws.cell(row=nota_row + 2, column=1, value="- 'Formato' es opcional. Si no se especifica, se usará Code128")
-            ws.cell(row=nota_row + 3, column=1, value="- Formatos disponibles: Code128, EAN13, EAN8, Code39")
             
             # Ajustar ancho de columnas
             for col_idx in range(1, len(columnas) + 1):
@@ -168,7 +169,8 @@ class ExcelService:
     def importar_desde_excel(
         self, 
         ruta_archivo: Path,
-        callback_progreso: Optional[callable] = None
+        callback_progreso: Optional[callable] = None,
+        formato_por_defecto: Optional[str] = None
     ) -> Tuple[bool, Dict[str, int], List[str]]:
         """
         Importa datos desde un archivo Excel y genera códigos de barras
@@ -177,6 +179,7 @@ class ExcelService:
             ruta_archivo: Ruta al archivo Excel a importar
             callback_progreso: Función callback para reportar progreso
                               Recibe (actual, total, mensaje)
+            formato_por_defecto: Formato a usar cuando no se especifica en el Excel (opcional)
             
         Returns:
             Tupla (éxito, estadísticas, errores)
@@ -200,7 +203,12 @@ class ExcelService:
             try:
                 idx_nombre = headers.index("Nombre del Empleado")
                 idx_codigo_empleado = headers.index("Código de Empleado")
-                idx_formato = headers.index("Formato") if "Formato" in headers else None
+                # Buscar "Formato (opcional)" o "Formato" para compatibilidad
+                idx_formato = None
+                if "Formato (opcional)" in headers:
+                    idx_formato = headers.index("Formato (opcional)")
+                elif "Formato" in headers:
+                    idx_formato = headers.index("Formato")
             except ValueError as e:
                 return False, {}, [f"Columna requerida no encontrada: {str(e)}"]
             
@@ -240,7 +248,8 @@ class ExcelService:
                 # Limpiar valores
                 nombre_empleado = str(nombre_empleado).strip()
                 codigo_empleado = str(codigo_empleado).strip()
-                formato = str(formato).strip() if formato else "Code128"
+                # Usar formato del Excel si existe, sino el formato por defecto, sino Code128
+                formato = str(formato).strip() if formato else (formato_por_defecto or "Code128")
                 
                 # Validar formato
                 formatos_validos = ["Code128", "EAN13", "EAN8", "Code39"]

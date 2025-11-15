@@ -54,7 +54,7 @@ class GenerationPanel(QWidget):
         layout_grupo = QVBoxLayout()
         grupo_principal.setLayout(layout_grupo)
         
-        label_formato = QLabel("Formato:")
+        label_formato = QLabel("Formato (opcional):")
         layout_grupo.addWidget(label_formato)
         
         self.combo_formato = QComboBox()

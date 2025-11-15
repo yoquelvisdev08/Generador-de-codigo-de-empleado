@@ -457,8 +457,13 @@ class MainController:
             
             ruta_path = Path(ruta_archivo)
             
-            # Exportar
-            exito, mensaje = self.excel_service.exportar_a_excel(ruta_path)
+            # Obtener formato seleccionado en el panel de generación
+            formato_seleccionado = None
+            if self.main_window.generation_panel:
+                formato_seleccionado = self.main_window.generation_panel.combo_formato.currentText()
+            
+            # Exportar con el formato seleccionado para completar formatos faltantes
+            exito, mensaje = self.excel_service.exportar_a_excel(ruta_path, formato_por_defecto=formato_seleccionado)
             
             if exito:
                 QMessageBox.information(
@@ -497,8 +502,13 @@ class MainController:
             
             ruta_path = Path(ruta_archivo)
             
-            # Generar ejemplo
-            exito, mensaje = self.excel_service.generar_excel_ejemplo(ruta_path)
+            # Obtener formato seleccionado en el panel de generación
+            formato_seleccionado = None
+            if self.main_window.generation_panel:
+                formato_seleccionado = self.main_window.generation_panel.combo_formato.currentText()
+            
+            # Generar ejemplo con el formato seleccionado
+            exito, mensaje = self.excel_service.generar_excel_ejemplo(ruta_path, formato_por_defecto=formato_seleccionado)
             
             if exito:
                 QMessageBox.information(
@@ -544,10 +554,16 @@ class MainController:
             def actualizar_progreso(actual, total, mensaje):
                 progress_dialog.actualizar_progreso(actual, total, mensaje)
             
+            # Obtener formato seleccionado en el panel de generación
+            formato_seleccionado = None
+            if self.generation_panel:
+                formato_seleccionado = self.generation_panel.combo_formato.currentText()
+            
             # Importar (primera pasada: validación)
             exito, estadisticas, errores = self.excel_service.importar_desde_excel(
                 ruta_path,
-                callback_progreso=actualizar_progreso
+                callback_progreso=actualizar_progreso,
+                formato_por_defecto=formato_seleccionado
             )
             
             if not exito:
@@ -620,7 +636,12 @@ class MainController:
             
             idx_nombre = headers.index("Nombre del Empleado")
             idx_codigo_empleado = headers.index("Código de Empleado")
-            idx_formato = headers.index("Formato") if "Formato" in headers else None
+            # Buscar "Formato (opcional)" o "Formato" para compatibilidad
+            idx_formato = None
+            if "Formato (opcional)" in headers:
+                idx_formato = headers.index("Formato (opcional)")
+            elif "Formato" in headers:
+                idx_formato = headers.index("Formato")
             
             exitosos_final = 0
             errores_final = []
@@ -641,7 +662,8 @@ class MainController:
                 
                 nombre_empleado = str(nombre_empleado).strip()
                 codigo_empleado = str(codigo_empleado).strip()
-                formato = str(formato).strip() if formato else "Code128"
+                # Usar formato del Excel si existe, sino el formato seleccionado en el dropdown, sino Code128
+                formato = str(formato).strip() if formato else (formato_seleccionado or "Code128")
                 
                 formatos_validos = ["Code128", "EAN13", "EAN8", "Code39"]
                 if formato not in formatos_validos:
