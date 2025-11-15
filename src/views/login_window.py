@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 
-from config.settings import autenticar_usuario
+from config.settings import autenticar_usuario, LOGO_PATH, LOGO_ICON_PATH
 from src.models.database import DatabaseManager
 
 
@@ -27,7 +27,7 @@ class LoginWindow(QWidget):
         super().__init__(parent)
         self.db_manager = DatabaseManager()
         self.setWindowTitle("Acceso al Sistema - Generador de Códigos de Barras")
-        self.setFixedSize(550, 500)
+        self.setFixedSize(550, 550)
         self.init_ui()
         
         # Verificar si hay usuarios en la BD después de que la UI esté lista
@@ -36,6 +36,11 @@ class LoginWindow(QWidget):
     
     def init_ui(self):
         """Inicializa la interfaz de usuario"""
+        # Establecer ícono de ventana
+        if LOGO_ICON_PATH.exists():
+            from PyQt6.QtGui import QIcon
+            self.setWindowIcon(QIcon(str(LOGO_ICON_PATH)))
+        
         layout = QVBoxLayout()
         layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -45,17 +50,34 @@ class LoginWindow(QWidget):
         container = QWidget()
         container_layout = QVBoxLayout()
         container_layout.setSpacing(0)
-        container_layout.setContentsMargins(50, 60, 50, 50)
+        container_layout.setContentsMargins(50, 50, 50, 50)
         container.setLayout(container_layout)
         
-        # Icono visual
-        icono_label = QLabel("🔐")
-        icono_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icono_font = QFont()
-        icono_font.setPointSize(48)
-        icono_label.setFont(icono_font)
-        icono_label.setStyleSheet("background: transparent; border: none; margin-bottom: 10px;")
-        container_layout.addWidget(icono_label)
+        # Logo de la aplicación
+        if LOGO_PATH.exists():
+            from PyQt6.QtGui import QPixmap
+            logo_label = QLabel()
+            pixmap = QPixmap(str(LOGO_PATH))
+            # Logo más pequeño pero con buena resolución
+            scaled_pixmap = pixmap.scaled(90, 90, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            logo_label.setPixmap(scaled_pixmap)
+            logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            logo_label.setStyleSheet("background: transparent; border: none;")
+            logo_label.setScaledContents(False)
+            logo_label.setMinimumHeight(90)
+            container_layout.addWidget(logo_label, 0, Qt.AlignmentFlag.AlignHCenter)
+            
+            # Espaciado después del logo
+            container_layout.addSpacing(10)
+        else:
+            # Fallback: Icono visual de emoji si no existe el logo
+            icono_label = QLabel("🔐")
+            icono_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            icono_font = QFont()
+            icono_font.setPointSize(48)
+            icono_label.setFont(icono_font)
+            icono_label.setStyleSheet("background: transparent; border: none; margin-bottom: 10px;")
+            container_layout.addWidget(icono_label)
         
         # Título con mejor estilo - sin fondo
         titulo = QLabel("Bienvenido")

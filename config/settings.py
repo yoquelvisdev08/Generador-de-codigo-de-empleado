@@ -18,6 +18,12 @@ CARNETS_DIR = DATA_DIR / "carnets"
 TEMPLATES_DIR = DATA_DIR / "templates_carnet"
 LOGS_DIR = DATA_DIR / "logs"
 
+# Directorio de assets y logos
+ASSETS_DIR = BASE_DIR / "assets"
+LOGO_PATH = ASSETS_DIR / "logo.png"
+LOGO_HORIZONTAL_PATH = ASSETS_DIR / "logo_horizontal.png"
+LOGO_ICON_PATH = ASSETS_DIR / "logo_64x64.png"
+
 # Asegurar que los directorios existan
 IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -25,6 +31,7 @@ BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
 CARNETS_DIR.mkdir(parents=True, exist_ok=True)
 TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
+ASSETS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Configuración de la aplicación
 APP_NAME = "Generador de Códigos de Carnet"

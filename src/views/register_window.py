@@ -7,6 +7,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 import re
 
+from config.settings import LOGO_PATH, LOGO_ICON_PATH
 from src.models.database import DatabaseManager
 from src.utils.password_utils import hash_contraseña, formatear_contraseña_hash
 from src.utils.user_logger import user_logger
@@ -29,11 +30,16 @@ class RegisterWindow(QWidget):
         super().__init__(parent)
         self.db_manager = DatabaseManager()
         self.setWindowTitle("Registro - Generador de Códigos de Barras")
-        self.setFixedSize(550, 650)
+        self.setFixedSize(550, 700)
         self.init_ui()
     
     def init_ui(self):
         """Inicializa la interfaz de usuario"""
+        # Establecer ícono de ventana
+        if LOGO_ICON_PATH.exists():
+            from PyQt6.QtGui import QIcon
+            self.setWindowIcon(QIcon(str(LOGO_ICON_PATH)))
+        
         layout = QVBoxLayout()
         layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -43,17 +49,34 @@ class RegisterWindow(QWidget):
         container = QWidget()
         container_layout = QVBoxLayout()
         container_layout.setSpacing(0)
-        container_layout.setContentsMargins(50, 50, 50, 50)
+        container_layout.setContentsMargins(50, 40, 50, 50)
         container.setLayout(container_layout)
         
-        # Icono visual
-        icono_label = QLabel("👤")
-        icono_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icono_font = QFont()
-        icono_font.setPointSize(48)
-        icono_label.setFont(icono_font)
-        icono_label.setStyleSheet("background: transparent; border: none; margin-bottom: 10px;")
-        container_layout.addWidget(icono_label)
+        # Logo de la aplicación
+        if LOGO_PATH.exists():
+            from PyQt6.QtGui import QPixmap
+            logo_label = QLabel()
+            pixmap = QPixmap(str(LOGO_PATH))
+            # Logo más pequeño pero con buena resolución
+            scaled_pixmap = pixmap.scaled(90, 90, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            logo_label.setPixmap(scaled_pixmap)
+            logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            logo_label.setStyleSheet("background: transparent; border: none;")
+            logo_label.setScaledContents(False)
+            logo_label.setMinimumHeight(90)
+            container_layout.addWidget(logo_label, 0, Qt.AlignmentFlag.AlignHCenter)
+            
+            # Espaciado después del logo
+            container_layout.addSpacing(10)
+        else:
+            # Fallback: Icono visual de emoji si no existe el logo
+            icono_label = QLabel("👤")
+            icono_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            icono_font = QFont()
+            icono_font.setPointSize(48)
+            icono_label.setFont(icono_font)
+            icono_label.setStyleSheet("background: transparent; border: none; margin-bottom: 10px;")
+            container_layout.addWidget(icono_label)
         
         # Título
         titulo = QLabel("Registro de Administrador")

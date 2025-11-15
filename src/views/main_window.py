@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QSplitter, QLabe
                              QStackedWidget, QHBoxLayout, QPushButton, QFrame, QMenu)
 from PyQt6.QtCore import Qt
 
-from config.settings import APP_NAME, APP_AUTHOR, WINDOW_WIDTH, WINDOW_HEIGHT
+from config.settings import APP_NAME, APP_AUTHOR, WINDOW_WIDTH, WINDOW_HEIGHT, LOGO_ICON_PATH
 from src.views.widgets.generation_panel import GenerationPanel
 from src.views.widgets.list_panel import ListPanel
 from src.views.carnet_window import CarnetPanel
@@ -39,6 +39,11 @@ class MainWindow(QMainWindow):
     def init_ui(self):
         """Inicializa la interfaz de usuario"""
         self.setWindowTitle(f"{APP_NAME} - {APP_AUTHOR}")
+        
+        # Establecer ícono de ventana
+        if LOGO_ICON_PATH.exists():
+            from PyQt6.QtGui import QIcon
+            self.setWindowIcon(QIcon(str(LOGO_ICON_PATH)))
         
         # Tamaños responsivos: mínimo para laptops pequeñas, máximo flexible
         self.setMinimumSize(800, 600)  # Mínimo para laptops pequeñas
