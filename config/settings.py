@@ -16,6 +16,7 @@ DB_PATH = DATA_DIR / "codigos_barras.db"
 BACKUPS_DIR = DATA_DIR / "backups"
 CARNETS_DIR = DATA_DIR / "carnets"
 TEMPLATES_DIR = DATA_DIR / "templates_carnet"
+LOGS_DIR = DATA_DIR / "logs"
 
 # Asegurar que los directorios existan
 IMAGES_DIR.mkdir(parents=True, exist_ok=True)
@@ -23,6 +24,7 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
 CARNETS_DIR.mkdir(parents=True, exist_ok=True)
 TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
+LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Configuración de la aplicación
 APP_NAME = "Generador de Códigos de Carnet"
@@ -55,79 +57,57 @@ BARCODE_IMAGE_OPTIONS = {
 INVALID_FILENAME_CHARS = ['/', '\\', ':', '*', '?', '"', '<', '>', '|']
 
 # Configuración de seguridad y usuarios
-def cargar_usuarios():
-    """
-    Carga los usuarios desde las variables de entorno ADMIN_USERS y REGULAR_USERS
-    Formato ADMIN_USERS: usuario:contraseña,usuario2:contraseña2
-    Formato REGULAR_USERS: usuario:contraseña,usuario2:contraseña2
-    
-    Returns:
-        dict: Diccionario con {usuario: {'password': str, 'rol': str}}
-    """
-    usuarios = {}
-    
-    # Cargar administradores
-    admin_users_str = os.getenv("ADMIN_USERS", "")
-    if admin_users_str:
-        for usuario_info in admin_users_str.split(","):
-            usuario_info = usuario_info.strip()
-            if not usuario_info:
-                continue
-            
-            partes = usuario_info.split(":")
-            if len(partes) == 2:
-                usuario, password = partes
-                usuarios[usuario.strip()] = {
-                    "password": password.strip(),
-                    "rol": "admin"
-                }
-    
-    # Cargar usuarios regulares
-    regular_users_str = os.getenv("REGULAR_USERS", "")
-    if regular_users_str:
-        for usuario_info in regular_users_str.split(","):
-            usuario_info = usuario_info.strip()
-            if not usuario_info:
-                continue
-            
-            partes = usuario_info.split(":")
-            if len(partes) == 2:
-                usuario, password = partes
-                usuarios[usuario.strip()] = {
-                    "password": password.strip(),
-                    "rol": "user"
-                }
-    
-    # Si no se cargaron usuarios, crear un usuario admin por defecto
-    if not usuarios:
-        usuarios = {
-            "admin": {
-                "password": os.getenv("ADMIN_PASSWORD", "admin123"),
-                "rol": "admin"
-            }
-        }
-    
-    return usuarios
-
-USUARIOS = cargar_usuarios()
+# NOTA: La autenticación ahora se realiza mediante base de datos
+# Este código se mantiene solo para compatibilidad con código antiguo
 
 def autenticar_usuario(usuario: str, password: str) -> tuple[bool, str]:
     """
-    Autentica un usuario y retorna su rol si es válido
+    Autentica un usuario usando la base de datos y retorna su rol si es válido
     
     Args:
         usuario: Nombre de usuario
-        password: Contraseña
+        password: Contraseña en texto plano
         
     Returns:
         tuple: (es_valido: bool, rol: str)
         Si es_valido es False, rol será una cadena vacía
     """
-    if usuario in USUARIOS:
-        if USUARIOS[usuario]["password"] == password:
-            return True, USUARIOS[usuario]["rol"]
-    return False, ""
+    from src.models.database import DatabaseManager
+    from src.utils.password_utils import hash_contraseña, formatear_contraseña_hash, parsear_contraseña_hash
+    
+    try:
+        db_manager = DatabaseManager()
+        
+        # Obtener usuario de la BD
+        usuario_data = db_manager.obtener_usuario_por_usuario(usuario)
+        if not usuario_data:
+            return False, ""
+        
+        # Obtener el hash almacenado (formato: hash:salt)
+        # Necesitamos obtener la contraseña completa de la BD
+        with db_manager.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT contraseña FROM usuarios WHERE usuario = ?", (usuario,))
+            resultado = cursor.fetchone()
+            if not resultado:
+                return False, ""
+            
+            contraseña_formateada = resultado[0]
+            hash_almacenado, salt = parsear_contraseña_hash(contraseña_formateada)
+        
+        # Verificar contraseña
+        hash_calculado, _ = hash_contraseña(password, salt)
+        
+        if hash_calculado == hash_almacenado:
+            return True, usuario_data['rol']
+        
+        return False, ""
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error al autenticar usuario: {e}")
+        return False, ""
 
-# Mantener compatibilidad con código antiguo
+# Mantener compatibilidad con código antiguo (ya no se usa)
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
 

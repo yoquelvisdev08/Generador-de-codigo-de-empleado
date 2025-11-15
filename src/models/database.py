@@ -62,6 +62,19 @@ class DatabaseManager:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             
+            # Crear tabla de usuarios
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS usuarios (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nombre TEXT NOT NULL,
+                    email TEXT UNIQUE NOT NULL,
+                    usuario TEXT UNIQUE NOT NULL,
+                    contraseña TEXT NOT NULL,
+                    rol TEXT NOT NULL DEFAULT 'admin',
+                    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
             # Crear tabla principal
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS codigos_barras (
@@ -110,6 +123,17 @@ class DatabaseManager:
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_nombre_empleado 
                 ON codigos_barras(nombre_empleado)
+            """)
+            
+            # Índices para tabla de usuarios
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_usuario 
+                ON usuarios(usuario)
+            """)
+            
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_email 
+                ON usuarios(email)
             """)
             
             conn.commit()
@@ -567,3 +591,148 @@ class DatabaseManager:
                 logger.error(f"Error al eliminar imagen huérfana {nombre_archivo}: {e}")
         
         return eliminadas, errores
+    
+    # ==================== MÉTODOS DE GESTIÓN DE USUARIOS ====================
+    
+    def existe_usuario(self, usuario: str) -> bool:
+        """
+        Verifica si un usuario ya existe
+        
+        Args:
+            usuario: Nombre de usuario a verificar
+            
+        Returns:
+            True si existe, False en caso contrario
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1 FROM usuarios WHERE usuario = ? LIMIT 1", (usuario,))
+            return cursor.fetchone() is not None
+    
+    def existe_email(self, email: str) -> bool:
+        """
+        Verifica si un email ya existe
+        
+        Args:
+            email: Email a verificar
+            
+        Returns:
+            True si existe, False en caso contrario
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1 FROM usuarios WHERE email = ? LIMIT 1", (email,))
+            return cursor.fetchone() is not None
+    
+    def contar_usuarios(self) -> int:
+        """
+        Cuenta el número total de usuarios en la base de datos
+        
+        Returns:
+            Número de usuarios
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM usuarios")
+            return cursor.fetchone()[0]
+    
+    def crear_usuario(self, nombre: str, email: str, usuario: str, 
+                     contraseña_hash: str, rol: str = "admin") -> bool:
+        """
+        Crea un nuevo usuario en la base de datos
+        
+        Args:
+            nombre: Nombre completo del usuario
+            email: Email del usuario (debe ser único)
+            usuario: Nombre de usuario (debe ser único)
+            contraseña_hash: Hash de la contraseña
+            rol: Rol del usuario (admin o user). Por defecto 'admin'
+            
+        Returns:
+            True si se creó correctamente, False en caso contrario
+        """
+        # Verificar si el usuario o email ya existen
+        if self.existe_usuario(usuario):
+            logger.warning(f"Intento de crear usuario duplicado: {usuario}")
+            return False
+        
+        if self.existe_email(email):
+            logger.warning(f"Intento de crear email duplicado: {email}")
+            return False
+        
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute("""
+                    INSERT INTO usuarios (nombre, email, usuario, contraseña, rol)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (nombre, email, usuario, contraseña_hash, rol))
+                
+                conn.commit()
+                logger.info(f"Usuario creado: {usuario} con rol {rol}")
+                return True
+            except sqlite3.IntegrityError as e:
+                logger.warning(f"Error de integridad al crear usuario: {e}")
+                conn.rollback()
+                return False
+    
+    def autenticar_usuario(self, usuario: str, contraseña_hash: str) -> Optional[dict]:
+        """
+        Autentica un usuario con su contraseña
+        
+        Args:
+            usuario: Nombre de usuario
+            contraseña_hash: Hash de la contraseña
+            
+        Returns:
+            Diccionario con información del usuario si es válido, None en caso contrario
+            Formato: {'id': int, 'nombre': str, 'email': str, 'usuario': str, 'rol': str}
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, nombre, email, usuario, rol
+                FROM usuarios
+                WHERE usuario = ? AND contraseña = ?
+            """, (usuario, contraseña_hash))
+            
+            resultado = cursor.fetchone()
+            if resultado:
+                return {
+                    'id': resultado[0],
+                    'nombre': resultado[1],
+                    'email': resultado[2],
+                    'usuario': resultado[3],
+                    'rol': resultado[4]
+                }
+            return None
+    
+    def obtener_usuario_por_usuario(self, usuario: str) -> Optional[dict]:
+        """
+        Obtiene un usuario por su nombre de usuario
+        
+        Args:
+            usuario: Nombre de usuario
+            
+        Returns:
+            Diccionario con información del usuario o None si no existe
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, nombre, email, usuario, rol, fecha_creacion
+                FROM usuarios
+                WHERE usuario = ?
+            """, (usuario,))
+            
+            resultado = cursor.fetchone()
+            if resultado:
+                return {
+                    'id': resultado[0],
+                    'nombre': resultado[1],
+                    'email': resultado[2],
+                    'usuario': resultado[3],
+                    'rol': resultado[4],
+                    'fecha_creacion': resultado[5]
+                }
+            return None

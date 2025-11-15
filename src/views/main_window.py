@@ -14,16 +14,18 @@ from src.views.carnet_window import CarnetPanel
 class MainWindow(QMainWindow):
     """Ventana principal de la aplicación"""
     
-    def __init__(self, formatos_disponibles: list = None, parent=None):
+    def __init__(self, formatos_disponibles: list = None, nombre_usuario: str = "", parent=None):
         """
         Inicializa la ventana principal
         
         Args:
             formatos_disponibles: Lista de formatos disponibles para el panel de generación
+            nombre_usuario: Nombre completo del usuario autenticado
             parent: Widget padre
         """
         super().__init__(parent)
         self.formatos_disponibles = formatos_disponibles or []
+        self.nombre_usuario = nombre_usuario
         self.generation_panel = None
         self.carnet_panel = None
         self.list_panel = None
@@ -183,6 +185,19 @@ class MainWindow(QMainWindow):
         
         layout_navbar.addWidget(self.boton_tools)
         layout_navbar.addStretch()  # Empujar hacia la izquierda
+        
+        # Mostrar nombre del usuario al final del navbar
+        if self.nombre_usuario:
+            label_usuario = QLabel(f"👤 {self.nombre_usuario}")
+            label_usuario.setStyleSheet("""
+                QLabel {
+                    color: #333333;
+                    font-size: 11pt;
+                    padding: 4px 8px;
+                    background-color: transparent;
+                }
+            """)
+            layout_navbar.addWidget(label_usuario)
         
         # Indicador de vista actual (se actualizará dinámicamente)
         self.vista_actual = "codigo_barras"

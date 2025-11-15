@@ -18,6 +18,7 @@ from src.views.widgets.progress_dialog import ProgressDialog
 from src.utils.file_utils import obtener_ruta_imagen
 from src.utils.auth_utils import solicitar_password
 from src.utils.id_generator import IDGenerator
+from src.utils.user_logger import user_logger
 from src.controllers.carnet_controller import CarnetController
 
 
@@ -40,9 +41,17 @@ class MainController:
         self.export_service = ExportService()
         self.excel_service = ExcelService(self.db_manager)
         
+        # Obtener información completa del usuario
+        usuario_data = self.db_manager.obtener_usuario_por_usuario(usuario)
+        self.nombre_usuario = usuario_data['nombre'] if usuario_data else usuario
+        
         # Configurar formatos disponibles en el panel de generación
         formatos = self.barcode_service.obtener_formatos_disponibles()
-        self.main_window = MainWindow(formatos_disponibles=formatos)
+        self.main_window = MainWindow(formatos_disponibles=formatos, nombre_usuario=self.nombre_usuario)
+        
+        # Registrar inicio de sesión
+        from src.utils.user_logger import user_logger
+        user_logger.log_login(usuario)
         
         # Configurar visibilidad de botones según el rol
         self.main_window.list_panel.configurar_permisos(es_admin=(rol == "admin"))
@@ -166,6 +175,9 @@ class MainController:
             if self.carnet_controller is not None:
                 self.carnet_controller.refrescar_empleados()
             
+            # Registrar acción
+            user_logger.log_generar_codigo(self.usuario, nombre_empleado, codigo_empleado, formato)
+            
             QMessageBox.information(
                 self.main_window, "Éxito",
                 f"Código de barras generado y validado exitosamente.\n"
@@ -192,6 +204,9 @@ class MainController:
     
     def buscar_codigos(self):
         """Busca códigos según el término de búsqueda"""
+        termino = self.main_window.list_panel.obtener_termino_busqueda()
+        if termino:
+            user_logger.log_buscar(self.usuario, termino)
         self.cargar_codigos()
     
     def mostrar_imagen_seleccionada(self):
@@ -238,6 +253,9 @@ class MainController:
             filas, Path(directorio_destino)
         )
         
+        # Registrar acción
+        user_logger.log_exportar_codigos(self.usuario, exportados, "seleccionados")
+        
         mensaje = f"Exportación completada:\n{exportados} archivo(s) exportado(s)"
         if errores > 0:
             mensaje += f"\n{errores} error(es)"
@@ -269,6 +287,9 @@ class MainController:
             codigos, Path(ruta_zip)
         )
         
+        # Registrar acción
+        user_logger.log_exportar_codigos(self.usuario, agregados, "todos (ZIP)")
+        
         mensaje = f"ZIP creado exitosamente:\n{agregados} archivo(s) incluido(s)"
         if errores > 0:
             mensaje += f"\n{errores} archivo(s) no encontrado(s)"
@@ -288,6 +309,9 @@ class MainController:
             return
         
         if self.export_service.crear_backup_base_datos(Path(ruta_backup)):
+            # Registrar acción
+            user_logger.log_backup(self.usuario)
+            
             QMessageBox.information(
                 self.main_window, "Éxito",
                 f"Backup creado exitosamente:\n{ruta_backup}"
@@ -324,6 +348,9 @@ class MainController:
         
         if respuesta == QMessageBox.StandardButton.Yes:
             if self.db_manager.eliminar_codigo(id_db, eliminar_imagen=True):
+                # Registrar acción
+                user_logger.log_eliminar_codigo(self.usuario, id_db)
+                
                 QMessageBox.information(
                     self.main_window, "Éxito",
                     "Código e imagen eliminados correctamente.\n\n"
@@ -353,6 +380,9 @@ class MainController:
         
         if respuesta == QMessageBox.StandardButton.Yes:
             if self.db_manager.limpiar_base_datos(eliminar_imagenes=True):
+                # Registrar acción
+                user_logger.log_limpiar_bd(self.usuario)
+                
                 QMessageBox.information(
                     self.main_window, "Éxito",
                     "Base de datos e imágenes limpiadas exitosamente.\n\n"
@@ -380,6 +410,9 @@ class MainController:
         
         if respuesta == QMessageBox.StandardButton.Yes:
             eliminadas, errores = self.db_manager.limpiar_imagenes_huerfanas()
+            
+            # Registrar acción
+            user_logger.log_limpiar_imagenes(self.usuario, eliminadas)
             
             mensaje = f"Limpieza completada:\n{eliminadas} imagen(es) huérfana(s) eliminada(s)"
             if errores > 0:
@@ -466,6 +499,10 @@ class MainController:
             exito, mensaje = self.excel_service.exportar_a_excel(ruta_path, formato_por_defecto=formato_seleccionado)
             
             if exito:
+                # Obtener cantidad de códigos exportados
+                cantidad = len(self.db_manager.obtener_todos_codigos())
+                user_logger.log_exportar_excel(self.usuario, cantidad)
+                
                 QMessageBox.information(
                     self.main_window,
                     "Exportación Exitosa",
@@ -750,6 +787,10 @@ class MainController:
                     )
             
             progress_dialog.close()
+            
+            # Registrar acción
+            total_filas = ws.max_row - 1
+            user_logger.log_importar_excel(self.usuario, total_filas, exitosos_final, len(errores_final))
             
             # Mostrar resultado final
             mensaje_final = (

@@ -7,6 +7,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 
 from config.settings import autenticar_usuario
+from src.models.database import DatabaseManager
 
 
 class LoginWindow(QWidget):
@@ -24,9 +25,14 @@ class LoginWindow(QWidget):
             parent: Widget padre
         """
         super().__init__(parent)
+        self.db_manager = DatabaseManager()
         self.setWindowTitle("Acceso al Sistema - Generador de Códigos de Barras")
         self.setFixedSize(550, 500)
         self.init_ui()
+        
+        # Verificar si hay usuarios en la BD después de que la UI esté lista
+        from PyQt6.QtCore import QTimer
+        QTimer.singleShot(100, self.verificar_usuarios)
     
     def init_ui(self):
         """Inicializa la interfaz de usuario"""
@@ -195,6 +201,17 @@ class LoginWindow(QWidget):
         
         # Enfocar el campo de usuario al iniciar
         self.campo_usuario.setFocus()
+    
+    def verificar_usuarios(self):
+        """
+        Verifica si hay usuarios en la base de datos.
+        Si no hay usuarios, emite señal para mostrar ventana de registro.
+        """
+        cantidad_usuarios = self.db_manager.contar_usuarios()
+        if cantidad_usuarios == 0:
+            # No hay usuarios, necesitamos mostrar la ventana de registro
+            # Emitir señal especial para indicar que se necesita registro
+            self.login_exitoso.emit("__REGISTRO_REQUERIDO__", "")
     
     def validar_login(self):
         """Valida las credenciales ingresadas"""
