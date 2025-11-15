@@ -82,13 +82,22 @@ class CarnetEmployeesPanel(QWidget):
         self.boton_vista_previa.setStyleSheet("background-color: #17a2b8; color: white;")
         layout_acciones.addWidget(self.boton_vista_previa)
         
-        self.boton_generar_individual = QPushButton("Generar Carnet Individual")
+        self.boton_generar_individual = QPushButton("Generar Carnet Individual (PNG)")
         self.boton_generar_individual.setStyleSheet("background-color: #28a745; color: white;")
         layout_acciones.addWidget(self.boton_generar_individual)
         
-        self.boton_generar_masivo = QPushButton("Generar Carnets Masivos")
+        self.boton_generar_masivo = QPushButton("Generar Carnets Masivos (PNG)")
         self.boton_generar_masivo.setStyleSheet("background-color: #007bff; color: white;")
         layout_acciones.addWidget(self.boton_generar_masivo)
+        
+        # Botones para PDF
+        self.boton_generar_individual_pdf = QPushButton("Generar Carnet Individual PDF")
+        self.boton_generar_individual_pdf.setStyleSheet("background-color: #dc3545; color: white;")
+        layout_acciones.addWidget(self.boton_generar_individual_pdf)
+        
+        self.boton_generar_masivo_pdf = QPushButton("Generar Carnets Masivos PDF")
+        self.boton_generar_masivo_pdf.setStyleSheet("background-color: #fd7e14; color: white;")
+        layout_acciones.addWidget(self.boton_generar_masivo_pdf)
         
         layout_acciones.addStretch()
         layout.addWidget(grupo_acciones)
