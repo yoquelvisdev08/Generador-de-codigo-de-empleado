@@ -251,10 +251,13 @@ class ExcelService:
                 # Usar formato del Excel si existe, sino el formato por defecto, sino Code128
                 formato = str(formato).strip() if formato else (formato_por_defecto or "Code128")
                 
-                # Validar formato
+                # Validar formato - si no es Code128, cambiarlo a Code128
                 formatos_validos = ["Code128", "EAN13", "EAN8", "Code39"]
                 if formato not in formatos_validos:
-                    formato = "Code128"  # Usar por defecto
+                    formato = "Code128"  # Usar por defecto si es inválido
+                elif formato != "Code128":
+                    # Si el formato es válido pero no es Code128, cambiarlo a Code128
+                    formato = "Code128"
                 
                 # Verificar si el código de empleado ya existe (buscar por descripcion que es el código de empleado)
                 # La búsqueda puede retornar múltiples resultados, pero buscamos por descripción exacta

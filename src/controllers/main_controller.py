@@ -556,8 +556,8 @@ class MainController:
             
             # Obtener formato seleccionado en el panel de generación
             formato_seleccionado = None
-            if self.generation_panel:
-                formato_seleccionado = self.generation_panel.combo_formato.currentText()
+            if self.main_window.generation_panel:
+                formato_seleccionado = self.main_window.generation_panel.combo_formato.currentText()
             
             # Importar (primera pasada: validación)
             exito, estadisticas, errores = self.excel_service.importar_desde_excel(
@@ -665,8 +665,12 @@ class MainController:
                 # Usar formato del Excel si existe, sino el formato seleccionado en el dropdown, sino Code128
                 formato = str(formato).strip() if formato else (formato_seleccionado or "Code128")
                 
+                # Validar formato - si no es Code128, cambiarlo a Code128
                 formatos_validos = ["Code128", "EAN13", "EAN8", "Code39"]
                 if formato not in formatos_validos:
+                    formato = "Code128"  # Usar por defecto si es inválido
+                elif formato != "Code128":
+                    # Si el formato es válido pero no es Code128, cambiarlo a Code128
                     formato = "Code128"
                 
                 # Verificar si ya existe (buscar por código de empleado en descripcion)
