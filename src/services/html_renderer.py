@@ -100,24 +100,39 @@ class HTMLRenderer(QObject):
                 logger.debug("LocalFontsEnabled no está disponible en esta versión de PyQt6")
                 pass
             
-            # Configurar zoom para alta resolución (si el DPI es alto, renderizar más grande)
+            # Calcular factor de escala si se necesita mayor DPI
+            factor_escala = dpi / 300.0 if dpi > 300 else 1.0
+            
+            # Si se necesita alta resolución, renderizar directamente al tamaño final
+            # Esto evita pixelación al escalar después
             if dpi > 300:
-                # Para 600 DPI, renderizar a 2x y luego escalar
-                factor_escala = dpi / 300.0
+                # Renderizar el widget al tamaño final (alta resolución)
                 ancho_render = int(ancho * factor_escala)
                 alto_render = int(alto * factor_escala)
                 parent_widget.setFixedSize(ancho_render, alto_render)
                 web_view.setFixedSize(ancho_render, alto_render)
+                
+                # Establecer zoom ANTES de cargar el HTML para que se aplique correctamente
+                # El zoom escalará el contenido HTML nativamente sin pixelación
+                web_view.setZoomFactor(factor_escala)
+                
+                logger.info(f"Renderizando a alta resolución: widget {ancho_render}x{alto_render}, HTML base {ancho}x{alto}, zoom {factor_escala}x, DPI {dpi}")
             else:
+                # Renderizar a tamaño base (300 DPI)
                 ancho_render = ancho
                 alto_render = alto
+                parent_widget.setFixedSize(ancho_render, alto_render)
+                web_view.setFixedSize(ancho_render, alto_render)
+                web_view.setZoomFactor(1.0)
+                
+                logger.info(f"Renderizando a resolución base: widget {ancho_render}x{alto_render}, DPI {dpi}")
             
             # Procesar eventos para que se muestre
             QApplication.processEvents()
             
-            # Cargar HTML
-            logger.info(f"Cargando HTML en QWebEngineView (tamaño: {ancho}x{alto})")
-            web_view.setHtml(html_content)
+            # Cargar HTML después de establecer el zoom
+            logger.info(f"Cargando HTML en QWebEngineView (tamaño widget: {ancho_render}x{alto_render}, tamaño HTML base: {ancho}x{alto}, DPI: {dpi}, zoom: {web_view.zoomFactor()})")
+            web_view.setHtml(html_content, baseUrl=QUrl("file:///"))
             
             # Esperar a que cargue completamente usando un loop de eventos
             loop = QEventLoop()
@@ -254,36 +269,13 @@ class HTMLRenderer(QObject):
             width_capturado = qimage.width()
             height_capturado = qimage.height()
             
-            # Si renderizamos a alta resolución, mantener el tamaño renderizado (no escalar hacia abajo)
-            # Esto permite que la imagen final tenga más píxeles y por tanto mayor calidad
-            if dpi > 300:
-                factor_escala = dpi / 300.0
-                ancho_final = int(ancho * factor_escala)
-                alto_final = int(alto * factor_escala)
-                
-                # Si la imagen capturada es del tamaño renderizado, mantener ese tamaño
-                # (no escalar hacia abajo, así la imagen final tiene más resolución)
-                if width_capturado == ancho_render and height_capturado == alto_render:
-                    logger.info(f"Manteniendo imagen de alta resolución {width_capturado}x{height_capturado} (600 DPI)")
-                    # No escalar, mantener la alta resolución
-                    # Actualizar ancho y alto para que la imagen PIL tenga el tamaño correcto
-                    ancho = ancho_render
-                    alto = alto_render
-                elif width_capturado != ancho_render or height_capturado != alto_render:
-                    # Si hay discrepancia, escalar al tamaño renderizado esperado
-                    logger.info(f"Escalando imagen de {width_capturado}x{height_capturado} a {ancho_render}x{alto_render}")
-                    qimage = qimage.scaled(
-                        ancho_render, alto_render,
-                        Qt.AspectRatioMode.IgnoreAspectRatio,
-                        Qt.TransformationMode.SmoothTransformation
-                    )
-                    ancho = ancho_render
-                    alto = alto_render
-            elif width_capturado != ancho or height_capturado != alto:
-                # Escalar al tamaño deseado si es necesario (puede estar a 2x por devicePixelRatio)
-                logger.info(f"Escalando imagen de {width_capturado}x{height_capturado} a {ancho}x{alto}")
+            # Normalizar la imagen capturada al tamaño esperado
+            # Esto maneja casos donde devicePixelRatio puede afectar el tamaño
+            # Si el widget fue renderizado a alta resolución, la imagen debería ser del tamaño renderizado
+            if width_capturado != ancho_render or height_capturado != alto_render:
+                logger.info(f"Normalizando imagen capturada de {width_capturado}x{height_capturado} a {ancho_render}x{alto_render}")
                 qimage = qimage.scaled(
-                    ancho, alto,
+                    ancho_render, alto_render,
                     Qt.AspectRatioMode.IgnoreAspectRatio,
                     Qt.TransformationMode.SmoothTransformation
                 )
@@ -325,7 +317,10 @@ class HTMLRenderer(QObject):
                     logger.error(f"Error al convertir imagen: {e2}")
                     return None
             
-            logger.info(f"HTML renderizado exitosamente: {width}x{height}")
+            # La imagen ya está renderizada a la resolución correcta usando zoom nativo
+            # No necesitamos escalar después, ya que el zoom de QWebEngineView renderiza nativamente
+            # a alta resolución sin pixelación
+            logger.info(f"HTML renderizado exitosamente: {pil_image.size[0]}x{pil_image.size[1]} píxeles a {dpi} DPI (renderizado nativo sin escalado)")
             return pil_image
             
         except Exception as e:
