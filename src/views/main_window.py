@@ -14,18 +14,20 @@ from src.views.carnet_window import CarnetPanel
 class MainWindow(QMainWindow):
     """Ventana principal de la aplicación"""
     
-    def __init__(self, formatos_disponibles: list = None, nombre_usuario: str = "", parent=None):
+    def __init__(self, formatos_disponibles: list = None, nombre_usuario: str = "", rol_usuario: str = "user", parent=None):
         """
         Inicializa la ventana principal
         
         Args:
             formatos_disponibles: Lista de formatos disponibles para el panel de generación
             nombre_usuario: Nombre completo del usuario autenticado
+            rol_usuario: Rol del usuario ('admin' o 'user')
             parent: Widget padre
         """
         super().__init__(parent)
         self.formatos_disponibles = formatos_disponibles or []
         self.nombre_usuario = nombre_usuario
+        self.rol_usuario = rol_usuario
         self.generation_panel = None
         self.carnet_panel = None
         self.list_panel = None
@@ -119,7 +121,7 @@ class MainWindow(QMainWindow):
         
         layout_navbar = QHBoxLayout()
         layout_navbar.setContentsMargins(15, 4, 15, 4)  # Márgenes verticales reducidos
-        layout_navbar.setSpacing(0)
+        layout_navbar.setSpacing(12)  # Espaciado entre elementos
         self.navbar.setLayout(layout_navbar)
         
         # Botón "Tools" con menú desplegable - diseño minimalista
@@ -141,11 +143,11 @@ class MainWindow(QMainWindow):
                 padding-right: 4px;
             }
             QPushButton:hover {
-                background-color: #f5f5f5;
+                background-color: transparent;
                 color: #000000;
             }
             QPushButton:pressed {
-                background-color: #eeeeee;
+                background-color: transparent;
             }
         """)
         self.boton_tools.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -165,7 +167,7 @@ class MainWindow(QMainWindow):
                 border-radius: 2px;
             }
             QMenu::item:selected {
-                background-color: #f5f5f5;
+                background-color: transparent;
                 color: #000000;
             }
         """)
@@ -184,6 +186,61 @@ class MainWindow(QMainWindow):
         self.boton_tools.setMenu(menu_tools)
         
         layout_navbar.addWidget(self.boton_tools)
+        
+        # Dropdown para administradores (vacío por el momento)
+        if self.rol_usuario == "admin":
+            self.boton_admin = QPushButton("Usuario")
+            self.boton_admin.setStyleSheet("""
+                QPushButton {
+                    background-color: transparent;
+                    color: #333333;
+                    font-size: 11pt;
+                    padding: 4px 8px;
+                    border: none;
+                    text-align: left;
+                }
+                QPushButton::menu-indicator {
+                    subcontrol-origin: padding;
+                    subcontrol-position: center right;
+                    width: 12px;
+                    height: 12px;
+                    padding-right: 4px;
+                }
+                QPushButton:hover {
+                    background-color: transparent;
+                    color: #000000;
+                }
+                QPushButton:pressed {
+                    background-color: transparent;
+                }
+            """)
+            self.boton_admin.setCursor(Qt.CursorShape.PointingHandCursor)
+            
+            # Crear menú desplegable vacío - diseño minimalista
+            menu_admin = QMenu(self.boton_admin)
+            menu_admin.setStyleSheet("""
+                QMenu {
+                    background-color: #ffffff;
+                    color: #333333;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 4px;
+                    padding: 4px;
+                }
+                QMenu::item {
+                    padding: 8px 24px 8px 16px;
+                    border-radius: 2px;
+                }
+                QMenu::item:selected {
+                    background-color: #f5f5f5;
+                    color: #000000;
+                }
+            """)
+            
+            # Asignar menú al botón
+            self.boton_admin.setMenu(menu_admin)
+            
+            layout_navbar.addWidget(self.boton_admin)
+        
         layout_navbar.addStretch()  # Empujar hacia la izquierda
         
         # Mostrar nombre del usuario al final del navbar

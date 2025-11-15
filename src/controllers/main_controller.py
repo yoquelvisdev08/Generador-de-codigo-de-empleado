@@ -47,7 +47,7 @@ class MainController:
         
         # Configurar formatos disponibles en el panel de generación
         formatos = self.barcode_service.obtener_formatos_disponibles()
-        self.main_window = MainWindow(formatos_disponibles=formatos, nombre_usuario=self.nombre_usuario)
+        self.main_window = MainWindow(formatos_disponibles=formatos, nombre_usuario=self.nombre_usuario, rol_usuario=self.rol)
         
         # Registrar inicio de sesión
         from src.utils.user_logger import user_logger
