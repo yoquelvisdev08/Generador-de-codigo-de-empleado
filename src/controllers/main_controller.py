@@ -68,6 +68,10 @@ class MainController:
         self.main_window.accion_codigo_barras.triggered.connect(self.mostrar_vista_generacion)
         self.main_window.accion_crear_carnet.triggered.connect(self.mostrar_vista_carnet)
         
+        # Navbar - menú Usuario (solo para administradores)
+        if self.rol == "admin":
+            self.main_window.accion_gestion_usuarios.triggered.connect(self.mostrar_gestion_usuarios)
+        
         # Panel de generación
         self.main_window.generation_panel.boton_generar.clicked.connect(self.generar_codigo)
         # Conectar señales para actualización en tiempo real del ID
@@ -829,6 +833,10 @@ class MainController:
     def mostrar_vista_generacion(self):
         """Cambia a la vista de generación de códigos"""
         self.main_window.mostrar_vista_generacion()
+    
+    def mostrar_gestion_usuarios(self):
+        """Muestra la vista de gestión de usuarios"""
+        self.main_window.mostrar_vista_gestion_usuarios()
     
     def show(self):
         """Muestra la ventana principal"""

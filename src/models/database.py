@@ -736,3 +736,93 @@ class DatabaseManager:
                     'fecha_creacion': resultado[5]
                 }
             return None
+    
+    def obtener_todos_usuarios(self) -> List[dict]:
+        """
+        Obtiene todos los usuarios registrados
+        
+        Returns:
+            Lista de diccionarios con información de todos los usuarios
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, nombre, email, usuario, rol, fecha_creacion
+                FROM usuarios
+                ORDER BY fecha_creacion DESC
+            """)
+            
+            resultados = cursor.fetchall()
+            usuarios = []
+            for resultado in resultados:
+                usuarios.append({
+                    'id': resultado[0],
+                    'nombre': resultado[1],
+                    'email': resultado[2],
+                    'usuario': resultado[3],
+                    'rol': resultado[4],
+                    'fecha_creacion': resultado[5]
+                })
+            return usuarios
+    
+    def actualizar_contraseña_usuario(self, usuario: str, nueva_contraseña_hash: str) -> bool:
+        """
+        Actualiza la contraseña de un usuario
+        
+        Args:
+            usuario: Nombre de usuario
+            nueva_contraseña_hash: Nuevo hash de contraseña (formato hash:salt)
+            
+        Returns:
+            True si se actualizó correctamente, False en caso contrario
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute("""
+                    UPDATE usuarios
+                    SET contraseña = ?
+                    WHERE usuario = ?
+                """, (nueva_contraseña_hash, usuario))
+                
+                filas_afectadas = cursor.rowcount
+                conn.commit()
+                
+                if filas_afectadas > 0:
+                    logger.info(f"Contraseña actualizada para usuario: {usuario}")
+                    return True
+                else:
+                    logger.warning(f"No se encontró el usuario para actualizar contraseña: {usuario}")
+                    return False
+            except Exception as e:
+                logger.error(f"Error al actualizar contraseña: {e}")
+                conn.rollback()
+                return False
+    
+    def eliminar_usuario(self, usuario: str) -> bool:
+        """
+        Elimina un usuario de la base de datos
+        
+        Args:
+            usuario: Nombre de usuario a eliminar
+            
+        Returns:
+            True si se eliminó correctamente, False en caso contrario
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute("DELETE FROM usuarios WHERE usuario = ?", (usuario,))
+                filas_afectadas = cursor.rowcount
+                conn.commit()
+                
+                if filas_afectadas > 0:
+                    logger.info(f"Usuario eliminado: {usuario}")
+                    return True
+                else:
+                    logger.warning(f"No se encontró el usuario para eliminar: {usuario}")
+                    return False
+            except Exception as e:
+                logger.error(f"Error al eliminar usuario: {e}")
+                conn.rollback()
+                return False

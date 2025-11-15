@@ -9,6 +9,7 @@ from config.settings import APP_NAME, APP_AUTHOR, WINDOW_WIDTH, WINDOW_HEIGHT
 from src.views.widgets.generation_panel import GenerationPanel
 from src.views.widgets.list_panel import ListPanel
 from src.views.carnet_window import CarnetPanel
+from src.views.user_management_panel import UserManagementPanel
 
 
 class MainWindow(QMainWindow):
@@ -30,6 +31,7 @@ class MainWindow(QMainWindow):
         self.rol_usuario = rol_usuario
         self.generation_panel = None
         self.carnet_panel = None
+        self.user_management_panel = None
         self.list_panel = None
         self.stacked_widget = None
         self.init_ui()
@@ -68,13 +70,18 @@ class MainWindow(QMainWindow):
         self.stacked_widget = QStackedWidget()
         self.stacked_widget.setMinimumWidth(300)  # Ancho mínimo para panel izquierdo
         
-        # Panel de generación (vista principal)
+        # Panel de generación (vista principal - índice 0)
         self.generation_panel = GenerationPanel(self.formatos_disponibles)
         self.stacked_widget.addWidget(self.generation_panel)
         
-        # Panel de carnet (vista secundaria)
+        # Panel de carnet (vista secundaria - índice 1)
         self.carnet_panel = CarnetPanel()
         self.stacked_widget.addWidget(self.carnet_panel)
+        
+        # Panel de gestión de usuarios (vista terciaria - índice 2, solo para admin)
+        if self.rol_usuario == "admin":
+            self.user_management_panel = UserManagementPanel(usuario_actual=self.nombre_usuario)
+            self.stacked_widget.addWidget(self.user_management_panel)
         
         # Panel de listado (se oculta en vista de carnet)
         self.list_panel = ListPanel()
@@ -187,7 +194,7 @@ class MainWindow(QMainWindow):
         
         layout_navbar.addWidget(self.boton_tools)
         
-        # Dropdown para administradores (vacío por el momento)
+        # Dropdown para administradores
         if self.rol_usuario == "admin":
             self.boton_admin = QPushButton("Usuario")
             self.boton_admin.setStyleSheet("""
@@ -216,7 +223,7 @@ class MainWindow(QMainWindow):
             """)
             self.boton_admin.setCursor(Qt.CursorShape.PointingHandCursor)
             
-            # Crear menú desplegable vacío - diseño minimalista
+            # Crear menú desplegable - diseño minimalista
             menu_admin = QMenu(self.boton_admin)
             menu_admin.setStyleSheet("""
                 QMenu {
@@ -235,6 +242,12 @@ class MainWindow(QMainWindow):
                     color: #000000;
                 }
             """)
+            
+            # Acción "Gestión de Usuarios"
+            accion_gestion_usuarios = menu_admin.addAction("Gestión de Usuarios")
+            
+            # Guardar referencia para conectar en el controlador
+            self.accion_gestion_usuarios = accion_gestion_usuarios
             
             # Asignar menú al botón
             self.boton_admin.setMenu(menu_admin)
@@ -300,4 +313,16 @@ class MainWindow(QMainWindow):
         # Actualizar navbar
         self.vista_actual = "carnet"
         self._actualizar_estilo_navbar()
+    
+    def mostrar_vista_gestion_usuarios(self):
+        """Muestra la vista de gestión de usuarios"""
+        if self.rol_usuario == "admin" and self.user_management_panel:
+            self.stacked_widget.setCurrentIndex(2)
+            # Ocultar el panel de listado
+            self.list_panel.hide()
+            # Actualizar navbar
+            self.vista_actual = "gestion_usuarios"
+            self._actualizar_estilo_navbar()
+            # Cargar usuarios al mostrar la vista
+            self.user_management_panel.cargar_usuarios()
 
