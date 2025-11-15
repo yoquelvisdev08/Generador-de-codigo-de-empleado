@@ -153,7 +153,8 @@ El sistema generará automáticamente un ID único personalizado según las opci
   - Detección de duplicados
   - Opción de regenerar códigos que fallan la validación
   - Diálogo de progreso para mantener al usuario informado
-- **Descargar Excel de Ejemplo**: Descarga un archivo Excel de ejemplo con el formato correcto para importar datos. Incluye columnas requeridas y opcionales, con datos de ejemplo y notas explicativas
+  - **Normalización de formatos**: Si el Excel contiene formatos distintos de Code128 (EAN13, EAN8, Code39), estos se convierten automáticamente a Code128 durante la importación. Si no se especifica formato en el Excel, se utiliza el formato seleccionado en el dropdown de la interfaz o Code128 por defecto
+- **Descargar Excel de Ejemplo**: Descarga un archivo Excel de ejemplo con el formato correcto para importar datos. La columna "Formato (opcional)" permite especificar un formato, pero todos los formatos se normalizarán a Code128 durante la importación
 
 #### Funcionalidades de Administración (Solo Admin)
 
@@ -164,6 +165,12 @@ El sistema generará automáticamente un ID único personalizado según las opci
 #### Editor de Carnets
 
 - **Crear Carnet**: Acceda desde el menú **Tools** > **Crear Carnet** para diseñar carnets de identificación con templates HTML personalizables
+  - **Templates HTML personalizables**: Seleccione un template HTML desde el directorio `data/templates_carnet/` o cree uno nuevo
+  - **Variables dinámicas**: El sistema detecta automáticamente las variables del template (como `{{nombre}}`, `{{codigo_barras}}`, etc.) y genera campos de entrada para cada una
+  - **Vista previa en tiempo real**: Visualice cómo se verá el carnet antes de generarlo
+  - **Generación individual**: Genere un carnet para el empleado seleccionado en la lista
+  - **Generación masiva**: Genere carnets para todos los empleados de la base de datos con un solo clic, con diálogo de progreso que muestra el estado de la generación
+  - **Interfaz unificada**: Los controles de template HTML y variables están consolidados en un solo panel para mejor organización
 
 ## Arquitectura del Proyecto
 
