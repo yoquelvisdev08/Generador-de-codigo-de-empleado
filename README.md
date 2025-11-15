@@ -17,6 +17,7 @@ Aplicación de escritorio con interfaz gráfica para generar códigos de barras 
 - **Exportación**: Exportación individual o masiva de imágenes
 - **Importación/Exportación Excel**: Gestión masiva de datos mediante archivos Excel
 - **Editor de Carnets**: Diseño de carnets de identificación con templates HTML
+- **Gestión de Usuarios**: Panel administrativo para crear usuarios, cambiar contraseñas y eliminar usuarios
 - **Gestión completa**: Crear, ver, eliminar códigos y gestionar imágenes
 - **Control de permisos**: Los administradores tienen acceso a funciones adicionales
 
@@ -107,9 +108,14 @@ O usando el script de ejecución (recomendado):
 
 ### Navegación
 
-La aplicación cuenta con un navbar permanente en la parte superior con un menú **Tools** que contiene:
+La aplicación cuenta con un navbar permanente en la parte superior con los siguientes menús:
+
+**Menú Tools:**
 - **Código de Barras**: Acceso al generador de códigos de barras
 - **Crear Carnet**: Acceso al editor de carnets de identificación
+
+**Menú Usuario (solo para administradores):**
+- **Gestión de Usuarios**: Panel administrativo para gestionar usuarios del sistema
 
 ### Generar un código de barras
 
@@ -163,6 +169,42 @@ El sistema generará automáticamente un ID único personalizado según las opci
 - **Limpiar Base de Datos**: Elimina todos los códigos de la base de datos (acción irreversible)
 - **Limpiar Imágenes Huérfanas**: Elimina imágenes que no tienen registro en la base de datos
 
+#### Gestión de Usuarios (Solo Admin)
+
+Los administradores pueden acceder a un panel completo de gestión de usuarios desde el menú **Usuario** > **Gestión de Usuarios** en el navbar.
+
+**Funcionalidades disponibles:**
+
+1. **Crear Nuevo Usuario**:
+   - Ingrese nombre completo, email, usuario y contraseña
+   - Seleccione el rol (admin o user)
+   - Validación automática de email, usuarios y contraseñas
+   - Verificación de duplicados
+   - Las contraseñas deben tener mínimo 6 caracteres
+   - Los usuarios deben tener mínimo 3 caracteres
+
+2. **Cambiar Contraseña**:
+   - Seleccione un usuario del dropdown
+   - Ingrese y confirme la nueva contraseña
+   - La contraseña se actualiza con hash seguro SHA-256 y salt
+
+3. **Ver Usuarios Registrados**:
+   - Tabla con todos los usuarios del sistema
+   - Información mostrada: Usuario, Nombre, Email, Rol, Fecha de Creación
+   - Diseño oscuro para mejor visibilidad
+
+4. **Eliminar Usuario**:
+   - Seleccione un usuario de la tabla
+   - Haga clic en "Eliminar Usuario"
+   - **Protección**: No puede eliminar su propio usuario
+   - Confirmación requerida antes de eliminar
+
+**Seguridad:**
+- Todas las contraseñas se almacenan con hash SHA-256 y salt único
+- Validación de formato de email
+- Verificación de usuarios y emails únicos
+- Todas las acciones se registran en los logs del sistema
+
 #### Editor de Carnets
 
 - **Crear Carnet**: Acceda desde el menú **Tools** > **Crear Carnet** para diseñar carnets de identificación con templates HTML personalizables
@@ -214,6 +256,7 @@ Generador-de-codigo-de-empleado/
 │   │   ├── login_window.py   # Ventana de login
 │   │   ├── register_window.py # Ventana de registro de usuarios
 │   │   ├── carnet_window.py  # Panel de creación de carnets
+│   │   ├── user_management_panel.py # Panel de gestión de usuarios
 │   │   └── widgets/          # Widgets reutilizables
 │   │       ├── __init__.py
 │   │       ├── generation_panel.py      # Panel de generación
@@ -298,6 +341,13 @@ La tabla `usuarios` contiene los siguientes campos:
 
 **Seguridad**: Las contraseñas se almacenan con hash SHA-256 y salt único, nunca en texto plano.
 
+**Gestión de usuarios**: El sistema incluye métodos para:
+- Crear nuevos usuarios con validación de duplicados
+- Actualizar contraseñas de usuarios existentes
+- Eliminar usuarios del sistema
+- Obtener información de usuarios
+- Autenticar credenciales de login
+
 ## Notas Técnicas
 
 ### Arquitectura MVP
@@ -329,8 +379,9 @@ El proyecto sigue el patrón **Model-View-Presenter (MVP)**:
 - **Limpieza automática de backups**: Se mantienen solo los 10 backups más recientes
 - **Importación/Exportación Excel**: Sistema completo para gestión masiva de datos con validación y generación automática
 - **Interfaz con scroll**: El panel de generación incluye scroll vertical para mejor navegación
-- **Navbar de navegación**: Barra de navegación permanente con menú desplegable para acceso rápido a funcionalidades principales
+- **Navbar de navegación**: Barra de navegación permanente con menús desplegables (Tools y Usuario) para acceso rápido a funcionalidades principales
 - **Autenticación basada en BD**: Sistema de autenticación seguro con usuarios almacenados en base de datos y contraseñas hasheadas
+- **Gestión de usuarios integrada**: Panel administrativo completo para crear, editar y eliminar usuarios del sistema
 - **Sistema de logging**: Registro automático de todas las acciones de usuarios en archivos de log diarios ubicados en `data/logs/`
 - **Información del usuario**: El nombre completo del usuario autenticado se muestra en el navbar
 
@@ -415,6 +466,8 @@ La aplicación incluye un sistema completo de autenticación con roles de usuari
 La aplicación soporta dos roles:
 
 - **Administrador (`admin`)**: Tiene acceso completo a todas las funcionalidades, incluyendo:
+  - Gestión de usuarios (crear, editar, eliminar usuarios)
+  - Cambiar contraseñas de cualquier usuario
   - Backup de base de datos
   - Limpiar base de datos
   - Limpiar imágenes huérfanas
@@ -426,6 +479,7 @@ La aplicación soporta dos roles:
   - Exportar códigos
   - Crear carnets
   - **NO** tiene acceso a funciones de administración
+  - **NO** tiene acceso al menú "Usuario" ni gestión de usuarios
 
 ### Información del Usuario
 
@@ -451,6 +505,7 @@ La aplicación registra automáticamente todas las acciones importantes de los u
 El sistema registra las siguientes acciones:
 - Inicio de sesión
 - Registro de nuevos usuarios
+- Gestión de usuarios (crear usuario, cambiar contraseña, eliminar usuario)
 - Generación de códigos de barras
 - Eliminación de códigos
 - Exportación de códigos (individual, masiva, Excel)
