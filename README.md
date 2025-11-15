@@ -98,9 +98,10 @@ O usando el script de ejecución (recomendado):
 **Nota:** Asegúrese de tener el entorno virtual activado antes de ejecutar la aplicación. Verá `(env)` al inicio de su línea de comandos cuando esté activado.
 
 **Al iniciar la aplicación:**
-1. Se mostrará una ventana de login
-2. Ingrese su usuario y contraseña configurados en el archivo `.env`
-3. Después del login exitoso, se abrirá la ventana principal de la aplicación
+1. Si es la primera vez (no hay usuarios registrados), se mostrará una ventana de registro para crear el primer usuario administrador
+2. Si ya hay usuarios registrados, se mostrará una ventana de login
+3. Ingrese su usuario y contraseña
+4. Después del login exitoso, se abrirá la ventana principal de la aplicación
 
 **En macOS:** Si obtiene un error relacionado con `zbar`, asegúrese de haber instalado `zbar` con Homebrew (ver requisitos adicionales arriba) y de que el entorno virtual esté activado correctamente. El script de activación configura automáticamente las variables de entorno necesarias.
 
@@ -211,6 +212,7 @@ Generador-de-codigo-de-empleado/
 │   │   ├── __init__.py
 │   │   ├── main_window.py    # Ventana principal
 │   │   ├── login_window.py   # Ventana de login
+│   │   ├── register_window.py # Ventana de registro de usuarios
 │   │   ├── carnet_window.py  # Panel de creación de carnets
 │   │   └── widgets/          # Widgets reutilizables
 │   │       ├── __init__.py
@@ -230,6 +232,8 @@ Generador-de-codigo-de-empleado/
 │       ├── __init__.py
 │       ├── file_utils.py     # Utilidades de archivos
 │       ├── auth_utils.py     # Utilidades de autenticación
+│       ├── password_utils.py # Utilidades para hash de contraseñas
+│       ├── user_logger.py    # Sistema de logging de acciones de usuarios
 │       ├── id_generator.py   # Generador de IDs personalizados
 │       ├── html_parser.py    # Parser de templates HTML
 │       └── template_generator.py # Generador de templates HTML
@@ -238,8 +242,8 @@ Generador-de-codigo-de-empleado/
 │   ├── __init__.py
 │   └── settings.py           # Configuración centralizada
 │
-├── .env                      # Variables de entorno (usuarios y contraseñas)
-├── .env.example              # Ejemplo de archivo de configuración
+├── .env                      # Variables de entorno (opcional, ya no se usa para autenticación)
+├── .env.example              # Ejemplo de archivo de configuración (legacy)
 ├── .gitignore                # Archivos ignorados por Git
 ├── run.sh                    # Script de ejecución (usa entorno virtual)
 │
@@ -248,7 +252,8 @@ Generador-de-codigo-de-empleado/
 │   ├── codigos_generados/   # Directorio con imágenes (se crea automáticamente)
 │   ├── backups/             # Backups automáticos de la base de datos
 │   ├── carnets/             # Carnets generados (se crea automáticamente)
-│   └── templates_carnet/    # Templates HTML para diseño de carnets
+│   ├── templates_carnet/    # Templates HTML para diseño de carnets
+│   └── logs/                 # Logs de acciones de usuarios (se crea automáticamente)
 │
 ├── tests/                    # Pruebas unitarias (estructura preparada)
 │   └── __init__.py
@@ -264,6 +269,8 @@ La aplicación utiliza SQLite como base de datos local. El archivo `codigos_barr
 
 ### Estructura de la Tabla
 
+### Tabla `codigos_barras`
+
 La tabla `codigos_barras` contiene los siguientes campos:
 
 - `id`: Identificador único del registro (auto-incremental)
@@ -276,6 +283,20 @@ La tabla `codigos_barras` contiene los siguientes campos:
 - `nombre_archivo`: Nombre del archivo de imagen generado (usado principalmente para carnets)
 
 **Nota**: El campo `nombre_archivo` no se muestra en la vista de códigos de barras, ya que es exclusivo del generador de carnets. En la vista de códigos de barras, el nombre del archivo se genera dinámicamente cuando es necesario.
+
+### Tabla `usuarios`
+
+La tabla `usuarios` contiene los siguientes campos:
+
+- `id`: Identificador único del registro (auto-incremental)
+- `nombre`: Nombre completo del usuario
+- `email`: Email del usuario (único)
+- `usuario`: Nombre de usuario para login (único)
+- `contraseña`: Hash de la contraseña con formato "hash:salt"
+- `rol`: Rol del usuario ('admin' o 'user')
+- `fecha_creacion`: Timestamp de creación del usuario
+
+**Seguridad**: Las contraseñas se almacenan con hash SHA-256 y salt único, nunca en texto plano.
 
 ## Notas Técnicas
 
@@ -309,6 +330,9 @@ El proyecto sigue el patrón **Model-View-Presenter (MVP)**:
 - **Importación/Exportación Excel**: Sistema completo para gestión masiva de datos con validación y generación automática
 - **Interfaz con scroll**: El panel de generación incluye scroll vertical para mejor navegación
 - **Navbar de navegación**: Barra de navegación permanente con menú desplegable para acceso rápido a funcionalidades principales
+- **Autenticación basada en BD**: Sistema de autenticación seguro con usuarios almacenados en base de datos y contraseñas hasheadas
+- **Sistema de logging**: Registro automático de todas las acciones de usuarios en archivos de log diarios ubicados en `data/logs/`
+- **Información del usuario**: El nombre completo del usuario autenticado se muestra en el navbar
 
 ## Solución de Problemas
 
@@ -355,31 +379,36 @@ Este error ocurre cuando `pyzbar` no puede encontrar la librería `zbar`. Soluci
 
 ## Seguridad y Autenticación
 
-La aplicación incluye un sistema completo de autenticación con roles de usuario. Al iniciar la aplicación, se mostrará una ventana de login donde debe ingresar sus credenciales.
+La aplicación incluye un sistema completo de autenticación con roles de usuario basado en base de datos. Los usuarios y contraseñas se almacenan de forma segura en la base de datos SQLite con hash SHA-256 y salt.
 
-### Configuración de Usuarios
+### Registro del Primer Usuario
 
-1. **Archivo `.env`**: Cree un archivo `.env` en la raíz del proyecto (puede copiar `.env.example`):
-   ```bash
-   cp .env.example .env
-   ```
+**Primera vez que ejecuta la aplicación:**
+1. Si no hay usuarios en la base de datos, se mostrará automáticamente una ventana de registro
+2. Complete el formulario con:
+   - **Nombre completo**: Su nombre completo
+   - **Email**: Su dirección de email (debe ser único)
+   - **Usuario**: Nombre de usuario para iniciar sesión (debe ser único, mínimo 3 caracteres)
+   - **Contraseña**: Contraseña segura (mínimo 6 caracteres)
+   - **Confirmar contraseña**: Repita la contraseña
+3. El primer usuario siempre se registra como **administrador**
+4. Después del registro exitoso, se abrirá la ventana principal de la aplicación
 
-2. **Configurar usuarios**: Edite el archivo `.env` y configure los usuarios administradores y regulares:
-   ```env
-   # Administradores del sistema
-   # Formato: usuario:contraseña
-   ADMIN_USERS=admin:admin123,supervisor:super123
-   
-   # Usuarios del sistema
-   # Formato: usuario:contraseña
-   REGULAR_USERS=usuario:user123,empleado:emp123
-   ```
+### Inicio de Sesión
 
-3. **Importante**: 
-   - El archivo `.env` está en `.gitignore` y no se subirá al repositorio
-   - Cambie las contraseñas por defecto en producción
-   - Use contraseñas seguras para proteger sus datos
-   - Puede agregar múltiples usuarios separados por comas en cada variable
+**En ejecuciones posteriores:**
+1. Se mostrará una ventana de login
+2. Ingrese su nombre de usuario y contraseña
+3. Haga clic en "Ingresar" o presione Enter
+4. Si las credenciales son correctas, se abrirá la ventana principal
+
+### Seguridad
+
+- **Contraseñas hasheadas**: Todas las contraseñas se almacenan con hash SHA-256 y salt único
+- **Almacenamiento en BD**: Los usuarios se almacenan en la tabla `usuarios` de la base de datos SQLite
+- **Validación de email**: El sistema valida el formato de email antes de registrar
+- **Usuarios únicos**: No se permiten usuarios o emails duplicados
+- **Nota**: El archivo `.env` ya no se utiliza para autenticación. Puede eliminarlo si no lo necesita para otras configuraciones.
 
 ### Roles de Usuario
 
@@ -398,14 +427,47 @@ La aplicación soporta dos roles:
   - Crear carnets
   - **NO** tiene acceso a funciones de administración
 
-### Ventana de Login
+### Información del Usuario
 
-Al iniciar la aplicación, se mostrará una ventana de login moderna donde debe:
-1. Ingresar su nombre de usuario
-2. Ingresar su contraseña
-3. Hacer clic en "Ingresar" o presionar Enter
+- El nombre completo del usuario autenticado se muestra en el navbar de la aplicación (parte superior derecha)
+- Esto permite identificar fácilmente quién está usando el sistema en cada momento
 
-Si las credenciales son incorrectas, se mostrará un mensaje de error. La aplicación se cerrará si cierra la ventana de login sin autenticarse.
+## Sistema de Logging de Usuarios
+
+La aplicación registra automáticamente todas las acciones importantes de los usuarios en archivos de log.
+
+### Características
+
+- **Logs diarios**: Se crea un archivo de log por día con formato `user_actions_YYYYMMDD.log`
+- **Ubicación**: Los logs se guardan en `data/logs/`
+- **Formato**: Cada línea contiene timestamp, usuario, acción y detalles
+  ```
+  2025-11-15 09:20:01 | Usuario: admin | Acción: Inicio de sesión
+  2025-11-15 09:25:30 | Usuario: admin | Acción: Generar código de barras | Detalles: Empleado: Juan Pérez, Código: EMP001, Formato: Code128
+  ```
+
+### Acciones Registradas
+
+El sistema registra las siguientes acciones:
+- Inicio de sesión
+- Registro de nuevos usuarios
+- Generación de códigos de barras
+- Eliminación de códigos
+- Exportación de códigos (individual, masiva, Excel)
+- Importación desde Excel
+- Creación de backups
+- Limpieza de base de datos
+- Limpieza de imágenes huérfanas
+- Búsquedas realizadas
+- Generación de carnets
+
+### Uso de los Logs
+
+Los logs permiten:
+- Auditoría de acciones realizadas por cada usuario
+- Seguimiento de cambios en el sistema
+- Identificación de problemas o errores
+- Análisis de uso del sistema
 
 ## Backup Automático
 
