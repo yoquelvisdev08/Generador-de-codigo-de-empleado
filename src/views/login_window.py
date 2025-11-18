@@ -99,11 +99,11 @@ class LoginWindow(QWidget):
         # Campo de usuario - diseño moderno sin label
         self.campo_usuario = QLineEdit()
         self.campo_usuario.setPlaceholderText("Usuario")
-        self.campo_usuario.setMinimumHeight(56)
+        self.campo_usuario.setMinimumHeight(52)
         self.campo_usuario.setStyleSheet("""
             QLineEdit {
-                padding: 16px 20px;
-                font-size: 15pt;
+                padding: 12px 18px;
+                font-size: 13pt;
                 border: 2px solid #e0e0e0;
                 border-radius: 12px;
                 background-color: #ffffff;
@@ -129,11 +129,11 @@ class LoginWindow(QWidget):
         self.campo_password = QLineEdit()
         self.campo_password.setEchoMode(QLineEdit.EchoMode.Password)
         self.campo_password.setPlaceholderText("Contraseña")
-        self.campo_password.setMinimumHeight(56)
+        self.campo_password.setMinimumHeight(52)
         self.campo_password.setStyleSheet("""
             QLineEdit {
-                padding: 16px 20px;
-                font-size: 15pt;
+                padding: 12px 18px;
+                font-size: 13pt;
                 border: 2px solid #e0e0e0;
                 border-radius: 12px;
                 background-color: #ffffff;

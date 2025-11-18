@@ -1,0 +1,195 @@
+TÉRMINOS Y CONDICIONES DE USO
+GENERADOR DE CÓDIGOS DE CARNET
+
+Versión 1.0.0
+Fecha de última actualización: Noviembre 2025
+
+================================================================================
+1. ACEPTACIÓN DE LOS TÉRMINOS
+================================================================================
+
+Al instalar, acceder o utilizar el software "Generador de Códigos de Carnet" 
+(en adelante, "el Software"), usted acepta estar legalmente obligado por estos 
+términos y condiciones de uso. Si no está de acuerdo con estos términos, no 
+instale ni utilice el Software.
+
+================================================================================
+2. LICENCIA DE USO
+================================================================================
+
+2.1. YoquelvisDev le otorga una licencia no exclusiva, no transferible y 
+revocable para utilizar el Software de acuerdo con estos términos.
+
+2.2. Esta licencia le permite:
+   - Instalar y utilizar el Software en múltiples equipos de su organización
+   - Generar códigos de barras y carnets para uso interno
+   - Realizar copias de seguridad del Software para fines de archivo
+
+2.3. Esta licencia NO le permite:
+   - Modificar, adaptar, traducir o crear trabajos derivados del Software
+   - Realizar ingeniería inversa, descompilar o desensamblar el Software
+   - Distribuir, sublicenciar, arrendar, prestar o transferir el Software
+   - Eliminar o modificar avisos de derechos de autor o marcas comerciales
+   - Utilizar el Software para fines ilegales o no autorizados
+
+================================================================================
+3. DERECHOS DE PROPIEDAD INTELECTUAL
+================================================================================
+
+3.1. El Software y todos los derechos de propiedad intelectual relacionados 
+son y permanecerán como propiedad exclusiva de YoquelvisDev.
+
+3.2. Esta licencia no le otorga ningún derecho sobre marcas comerciales, 
+logotipos o nombres comerciales de YoquelvisDev.
+
+================================================================================
+4. PRIVACIDAD Y PROTECCIÓN DE DATOS
+================================================================================
+
+4.1. El Software procesa y almacena datos localmente en su equipo.
+
+4.2. Los datos generados (códigos de barras, carnets, bases de datos) son de 
+su exclusiva propiedad y responsabilidad.
+
+4.3. El Software NO envía información a servidores externos sin su 
+consentimiento explícito.
+
+4.4. Usted es responsable de cumplir con todas las leyes aplicables de 
+protección de datos, incluyendo GDPR, CCPA y legislación local.
+
+================================================================================
+5. GARANTÍAS Y RESPONSABILIDADES
+================================================================================
+
+5.1. EL SOFTWARE SE PROPORCIONA "TAL CUAL", SIN GARANTÍAS DE NINGÚN TIPO, 
+EXPRESAS O IMPLÍCITAS.
+
+5.2. YoquelvisDev NO GARANTIZA que el Software:
+   - Cumplirá con sus requisitos específicos
+   - Operará de manera ininterrumpida o libre de errores
+   - Será compatible con todo hardware o software
+
+5.3. YoquelvisDev NO SERÁ RESPONSABLE de:
+   - Pérdida de datos o daños en el sistema
+   - Pérdida de beneficios o interrupción del negocio
+   - Daños directos, indirectos, incidentales o consecuentes
+
+5.4. Su único y exclusivo recurso en caso de insatisfacción es dejar de 
+utilizar el Software.
+
+================================================================================
+6. SOPORTE Y ACTUALIZACIONES
+================================================================================
+
+6.1. El soporte técnico se proporciona en la medida de lo posible, pero no 
+está garantizado.
+
+6.2. Las actualizaciones del Software pueden proporcionarse periódicamente, 
+pero no están garantizadas.
+
+6.3. YoquelvisDev se reserva el derecho de modificar o discontinuar el 
+Software en cualquier momento.
+
+================================================================================
+7. TERMINACIÓN
+================================================================================
+
+7.1. Esta licencia es efectiva hasta que sea terminada.
+
+7.2. Esta licencia terminará automáticamente si incumple cualquiera de estos 
+términos.
+
+7.3. Al terminar, debe cesar todo uso del Software y destruir todas las copias.
+
+================================================================================
+8. REQUISITOS DEL SISTEMA
+================================================================================
+
+8.1. El Software requiere:
+   - Windows 10 o superior (64-bit)
+   - Mínimo 4GB de RAM
+   - 500MB de espacio en disco disponible
+   - Resolución mínima de pantalla: 1024x768
+
+================================================================================
+9. CUMPLIMIENTO DE LEYES
+================================================================================
+
+9.1. Usted acepta utilizar el Software de acuerdo con todas las leyes y 
+regulaciones aplicables.
+
+9.2. Queda prohibido el uso del Software para:
+   - Actividades ilegales o fraudulentas
+   - Violación de derechos de propiedad intelectual
+   - Generación de documentos falsos o engañosos
+   - Cualquier propósito que pueda causar daño a terceros
+
+================================================================================
+10. MODIFICACIONES DE LOS TÉRMINOS
+================================================================================
+
+10.1. YoquelvisDev se reserva el derecho de modificar estos términos en 
+cualquier momento.
+
+10.2. Las modificaciones entrarán en vigor inmediatamente después de su 
+publicación.
+
+10.3. El uso continuado del Software después de las modificaciones constituye 
+su aceptación de los nuevos términos.
+
+================================================================================
+11. LEY APLICABLE Y JURISDICCIÓN
+================================================================================
+
+11.1. Estos términos se regirán e interpretarán de acuerdo con las leyes de 
+su jurisdicción local.
+
+11.2. Cualquier disputa se resolverá en los tribunales competentes de su 
+jurisdicción.
+
+================================================================================
+12. DISPOSICIONES GENERALES
+================================================================================
+
+12.1. Si alguna disposición de estos términos se considera inválida o 
+inaplicable, las demás disposiciones permanecerán en pleno vigor.
+
+12.2. El hecho de no ejercer o hacer cumplir cualquier derecho no constituye 
+una renuncia a dicho derecho.
+
+12.3. Estos términos constituyen el acuerdo completo entre usted y YoquelvisDev 
+con respecto al Software.
+
+================================================================================
+13. CONTACTO
+================================================================================
+
+Para preguntas sobre estos términos, puede contactar a:
+
+YoquelvisDev
+Email: soporte@yoquelvisdev.com
+GitHub: https://github.com/yoquelvisdev
+
+================================================================================
+14. RECONOCIMIENTOS
+================================================================================
+
+El Software utiliza las siguientes bibliotecas de código abierto:
+- PyQt6 (GPL v3)
+- Python-barcode (MIT License)
+- Pillow (PIL License)
+- Pyzbar (MIT License)
+- Openpyxl (MIT License)
+
+Agradecemos a los desarrolladores de estas bibliotecas por su trabajo.
+
+================================================================================
+
+AL HACER CLIC EN "ACEPTO" O AL INSTALAR EL SOFTWARE, USTED RECONOCE QUE HA 
+LEÍDO, COMPRENDIDO Y ACEPTA ESTAR LEGALMENTE OBLIGADO POR ESTOS TÉRMINOS Y 
+CONDICIONES.
+
+Copyright © 2025 YoquelvisDev. Todos los derechos reservados.
+
+================================================================================
+

@@ -79,10 +79,10 @@ class RegisterWindow(QWidget):
             container_layout.addWidget(icono_label)
         
         # Título
-        titulo = QLabel("Registro de Administrador")
+        titulo = QLabel("Registro")
         titulo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         titulo_font = QFont()
-        titulo_font.setPointSize(28)
+        titulo_font.setPointSize(32)
         titulo_font.setBold(True)
         titulo_font.setWeight(700)
         titulo.setFont(titulo_font)
@@ -90,16 +90,16 @@ class RegisterWindow(QWidget):
         container_layout.addWidget(titulo)
         
         # Subtítulo
-        subtitulo = QLabel("Complete el formulario para crear su cuenta de administrador")
+        subtitulo = QLabel("Crea tu cuenta de administrador")
         subtitulo.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        subtitulo.setStyleSheet("color: #6c757d; font-size: 13pt; margin-bottom: 30px; font-weight: 400; background: transparent; border: none;")
+        subtitulo.setStyleSheet("color: #6c757d; font-size: 14pt; margin-bottom: 30px; font-weight: 400; background: transparent; border: none;")
         subtitulo.setWordWrap(True)
         container_layout.addWidget(subtitulo)
         
         # Campo de nombre
         self.campo_nombre = QLineEdit()
         self.campo_nombre.setPlaceholderText("Nombre completo")
-        self.campo_nombre.setMinimumHeight(50)
+        self.campo_nombre.setMinimumHeight(52)
         self.campo_nombre.setStyleSheet(self._get_input_style())
         self.campo_nombre.returnPressed.connect(lambda: self.campo_email.setFocus())
         container_layout.addWidget(self.campo_nombre)
@@ -111,7 +111,7 @@ class RegisterWindow(QWidget):
         # Campo de email
         self.campo_email = QLineEdit()
         self.campo_email.setPlaceholderText("Email")
-        self.campo_email.setMinimumHeight(50)
+        self.campo_email.setMinimumHeight(52)
         self.campo_email.setStyleSheet(self._get_input_style())
         self.campo_email.returnPressed.connect(lambda: self.campo_usuario.setFocus())
         container_layout.addWidget(self.campo_email)
@@ -123,7 +123,7 @@ class RegisterWindow(QWidget):
         # Campo de usuario
         self.campo_usuario = QLineEdit()
         self.campo_usuario.setPlaceholderText("Usuario")
-        self.campo_usuario.setMinimumHeight(50)
+        self.campo_usuario.setMinimumHeight(52)
         self.campo_usuario.setStyleSheet(self._get_input_style())
         self.campo_usuario.returnPressed.connect(lambda: self.campo_password.setFocus())
         container_layout.addWidget(self.campo_usuario)
@@ -136,7 +136,7 @@ class RegisterWindow(QWidget):
         self.campo_password = QLineEdit()
         self.campo_password.setEchoMode(QLineEdit.EchoMode.Password)
         self.campo_password.setPlaceholderText("Contraseña")
-        self.campo_password.setMinimumHeight(50)
+        self.campo_password.setMinimumHeight(52)
         self.campo_password.setStyleSheet(self._get_input_style())
         self.campo_password.returnPressed.connect(lambda: self.campo_confirmar_password.setFocus())
         container_layout.addWidget(self.campo_password)
@@ -149,7 +149,7 @@ class RegisterWindow(QWidget):
         self.campo_confirmar_password = QLineEdit()
         self.campo_confirmar_password.setEchoMode(QLineEdit.EchoMode.Password)
         self.campo_confirmar_password.setPlaceholderText("Confirmar contraseña")
-        self.campo_confirmar_password.setMinimumHeight(50)
+        self.campo_confirmar_password.setMinimumHeight(52)
         self.campo_confirmar_password.setStyleSheet(self._get_input_style())
         self.campo_confirmar_password.returnPressed.connect(self.validar_registro)
         container_layout.addWidget(self.campo_confirmar_password)
@@ -184,8 +184,8 @@ class RegisterWindow(QWidget):
         """Retorna el estilo CSS para los campos de entrada"""
         return """
             QLineEdit {
-                padding: 14px 18px;
-                font-size: 14pt;
+                padding: 12px 18px;
+                font-size: 13pt;
                 border: 2px solid #e0e0e0;
                 border-radius: 12px;
                 background-color: #ffffff;

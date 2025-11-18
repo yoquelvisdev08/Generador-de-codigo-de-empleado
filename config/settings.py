@@ -1,16 +1,79 @@
 """
 Configuración de la aplicación
+Compatible con modo desarrollo y ejecutable compilado
 """
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Cargar variables de entorno desde .env
-BASE_DIR = Path(__file__).resolve().parent.parent
-ENV_FILE = BASE_DIR / ".env"
-load_dotenv(ENV_FILE)
+# Detectar si estamos en modo compilado o desarrollo
+def get_base_dir():
+    """Obtiene el directorio base según el modo de ejecución"""
+    if getattr(sys, 'frozen', False):
+        # Ejecutable compilado con PyInstaller
+        return Path(sys.executable).parent
+    else:
+        # Modo desarrollo
+        return Path(__file__).resolve().parent.parent
 
-DATA_DIR = BASE_DIR / "data"
+def get_resource_path(relative_path):
+    """Obtiene la ruta a un recurso, funciona en desarrollo y compilado"""
+    if getattr(sys, 'frozen', False):
+        # Ejecutable compilado - recursos están en _MEIPASS
+        base_path = Path(sys._MEIPASS)
+    else:
+        # Modo desarrollo
+        base_path = Path(__file__).resolve().parent.parent
+    return base_path / relative_path
+
+def get_data_dir():
+    """Obtiene el directorio de datos según el modo de ejecución"""
+    if getattr(sys, 'frozen', False):
+        # Ejecutable compilado - usar carpeta de datos del sistema
+        app_name = "Generador de Codigos de Carnet"
+        
+        # Intentar leer desde .env en el directorio del ejecutable
+        env_file = get_base_dir() / ".env"
+        if env_file.exists():
+            try:
+                # Intentar con UTF-8 primero, luego con latin-1 si falla
+                load_dotenv(env_file, encoding='utf-8')
+            except (UnicodeDecodeError, Exception):
+                try:
+                    load_dotenv(env_file, encoding='latin-1')
+                except Exception:
+                    pass  # Si falla, usar valores por defecto
+        
+        data_dir_env = os.getenv('DATA_DIR')
+        if data_dir_env:
+            return Path(data_dir_env)
+        
+        # Si no hay variable de entorno, usar ProgramData
+        if os.name == 'nt':  # Windows
+            base = os.getenv('PROGRAMDATA', 'C:\\ProgramData')
+            return Path(base) / app_name
+        else:  # Linux/Mac
+            return Path.home() / f'.{app_name.lower().replace(" ", "_")}'
+    else:
+        # Modo desarrollo - usar carpeta local
+        base_dir = get_base_dir()
+        env_file = base_dir / ".env"
+        if env_file.exists():
+            try:
+                load_dotenv(env_file, encoding='utf-8')
+            except (UnicodeDecodeError, Exception):
+                try:
+                    load_dotenv(env_file, encoding='latin-1')
+                except Exception:
+                    pass
+        return base_dir / "data"
+
+# Configurar directorios base
+BASE_DIR = get_base_dir()
+DATA_DIR = get_data_dir()
+
+# Directorios de datos (en carpeta de datos del sistema cuando está compilado)
 IMAGES_DIR = DATA_DIR / "codigos_generados"
 DB_PATH = DATA_DIR / "codigos_barras.db"
 BACKUPS_DIR = DATA_DIR / "backups"
@@ -18,8 +81,8 @@ CARNETS_DIR = DATA_DIR / "carnets"
 TEMPLATES_DIR = DATA_DIR / "templates_carnet"
 LOGS_DIR = DATA_DIR / "logs"
 
-# Directorio de assets y logos
-ASSETS_DIR = BASE_DIR / "assets"
+# Directorio de assets y logos (en carpeta de recursos internos)
+ASSETS_DIR = get_resource_path("assets")
 LOGO_PATH = ASSETS_DIR / "logo.png"
 LOGO_HORIZONTAL_PATH = ASSETS_DIR / "logo_horizontal.png"
 LOGO_ICON_PATH = ASSETS_DIR / "logo_64x64.png"

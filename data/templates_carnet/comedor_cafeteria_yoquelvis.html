@@ -140,20 +140,20 @@
                 return;
             }
             
-            // Buscar el primer espacio para separar nombre y apellido
-            var espacioIndex = nombreCompleto.indexOf(' ');
+            // Dividir en palabras
+            var palabras = nombreCompleto.trim().split(/\s+/);
             
-            if (espacioIndex > 0) {
-                // Hay un espacio, separar nombre y apellido
-                var nombre = nombreCompleto.substring(0, espacioIndex).trim();
-                var apellido = nombreCompleto.substring(espacioIndex + 1).trim();
-                
-                if (nombreElement) nombreElement.textContent = nombre;
-                if (apellidoElement) apellidoElement.textContent = apellido;
-            } else {
-                // No hay espacio, solo mostrar el nombre completo en la primera línea
-                if (nombreElement) nombreElement.textContent = nombreCompleto;
+            if (palabras.length === 1) {
+                // Solo una palabra: mostrarla en la primera línea
+                if (nombreElement) nombreElement.textContent = palabras[0];
                 if (apellidoElement) apellidoElement.textContent = '';
+            } else if (palabras.length >= 2) {
+                // Dos o más palabras: primer nombre + último apellido
+                var primerNombre = palabras[0];
+                var ultimoApellido = palabras[palabras.length - 1];
+                
+                if (nombreElement) nombreElement.textContent = primerNombre;
+                if (apellidoElement) apellidoElement.textContent = ultimoApellido;
             }
         }
         

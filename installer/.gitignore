@@ -1,0 +1,33 @@
+# Archivos y directorios generados por el sistema de instalación
+# Agregar estas líneas a tu .gitignore principal
+
+# Directorios de compilación
+build/
+dist/
+output_installer/
+
+# Archivos temporales de PyInstaller
+*.spec.bak
+*.manifest
+*.exe.manifest
+
+# Archivos temporales de Inno Setup
+*.iss.bak
+Setup.exe
+
+# Logs de compilación
+*.log
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Archivos de configuración local (no el template)
+.env
+!.env.template
+
+# Cache de Python (por si acaso)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
