@@ -105,15 +105,16 @@ class MainController:
     def generar_codigo(self):
         """Genera un nuevo código de barras"""
         datos = self.main_window.generation_panel.obtener_datos()
-        nombre_empleado = datos['nombre_empleado']
+        nombres = datos['nombres']
+        apellidos = datos['apellidos']
         formato = datos['formato']
         codigo_empleado = datos['descripcion']  # Mantener nombre interno como 'descripcion' para compatibilidad con BD
         opciones_id = self.main_window.generation_panel.obtener_opciones_id()
         
-        if not nombre_empleado:
+        if not nombres or not apellidos:
             QMessageBox.warning(
                 self.main_window, "Advertencia",
-                "Por favor ingrese el nombre del empleado"
+                "Por favor ingrese los nombres y apellidos del empleado"
             )
             return
         
@@ -126,17 +127,18 @@ class MainController:
         
         try:
             # Generar ID personalizado según las opciones seleccionadas
+            nombre_completo = f"{nombres} {apellidos}"
             id_unico_generado = IDGenerator.generar_id_personalizado(
                 tipo=opciones_id['tipo_caracteres'],
                 longitud=opciones_id['cantidad_caracteres'],
                 incluir_nombre=opciones_id['incluir_nombre'],
-                nombre_empleado=nombre_empleado if opciones_id['incluir_nombre'] else None,
+                nombre_empleado=nombre_completo if opciones_id['incluir_nombre'] else None,
                 texto_personalizado=opciones_id.get('texto_personalizado'),
                 verificar_duplicado=self.db_manager.verificar_codigo_existe
             )
             
             codigo_barras, id_unico_archivo, ruta_imagen = self.barcode_service.generar_codigo_barras(
-                id_unico_generado, formato, id_unico_generado, nombre_empleado
+                id_unico_generado, formato, id_unico_generado, nombres, apellidos
             )
             
             valido, mensaje_error = self.barcode_service.validar_codigo_barras(
@@ -156,7 +158,7 @@ class MainController:
             nombre_archivo = ruta_imagen.name
             
             exito = self.db_manager.insertar_codigo(
-                codigo_barras, id_unico_generado, formato, nombre_empleado, codigo_empleado, nombre_archivo
+                codigo_barras, id_unico_generado, formato, nombres, apellidos, codigo_empleado, nombre_archivo
             )
             
             if not exito:
@@ -180,13 +182,13 @@ class MainController:
                 self.carnet_controller.refrescar_empleados()
             
             # Registrar acción
-            user_logger.log_generar_codigo(self.usuario, nombre_empleado, codigo_empleado, formato)
+            user_logger.log_generar_codigo(self.usuario, nombre_completo, codigo_empleado, formato)
             
             QMessageBox.information(
                 self.main_window, "Éxito",
                 f"Código de barras generado y validado exitosamente.\n"
                 f"ID Único: {id_unico_generado}\n"
-                f"Empleado: {nombre_empleado}\n"
+                f"Empleado: {nombre_completo}\n"
                 f"Validación: El código escaneado coincide con el ID generado"
             )
         except Exception as e:
@@ -675,7 +677,8 @@ class MainController:
             for cell in ws[1]:
                 headers.append(cell.value if cell.value else "")
             
-            idx_nombre = headers.index("Nombre del Empleado")
+            idx_nombres = headers.index("Nombres")
+            idx_apellidos = headers.index("Apellidos")
             idx_codigo_empleado = headers.index("Código de Empleado")
             # Buscar "Formato (opcional)" o "Formato" para compatibilidad
             idx_formato = None
@@ -694,15 +697,18 @@ class MainController:
                     f"Generando código {row_idx - 1} de {ws.max_row - 1}..."
                 )
                 
-                nombre_empleado = ws.cell(row=row_idx, column=idx_nombre + 1).value
+                nombres = ws.cell(row=row_idx, column=idx_nombres + 1).value
+                apellidos = ws.cell(row=row_idx, column=idx_apellidos + 1).value
                 codigo_empleado = ws.cell(row=row_idx, column=idx_codigo_empleado + 1).value
                 formato = ws.cell(row=row_idx, column=idx_formato + 1).value if idx_formato is not None else None
                 
-                if not nombre_empleado or not codigo_empleado:
+                if not nombres or not apellidos or not codigo_empleado:
                     continue
                 
-                nombre_empleado = str(nombre_empleado).strip()
+                nombres = str(nombres).strip()
+                apellidos = str(apellidos).strip()
                 codigo_empleado = str(codigo_empleado).strip()
+                nombre_completo = f"{nombres} {apellidos}"
                 # Usar formato del Excel si existe, sino el formato seleccionado en el dropdown, sino Code128
                 formato = str(formato).strip() if formato else (formato_seleccionado or "Code128")
                 
@@ -718,13 +724,22 @@ class MainController:
                 todos_codigos = self.db_manager.obtener_todos_codigos()
                 codigo_existente = None
                 for codigo in todos_codigos:
-                    # codigo es: (id, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo)
-                    if len(codigo) >= 6 and codigo[5] == codigo_empleado:  # descripcion es índice 5
+                    # codigo es: (id, codigo_barras, id_unico, fecha_creacion, nombres, apellidos, descripcion, formato, nombre_archivo)
+                    if len(codigo) >= 7 and codigo[6] == codigo_empleado:  # descripcion es índice 6
                         codigo_existente = codigo
                         break
                 
                 if codigo_existente:
-                    id_db, codigo_barras, id_unico, fecha, nombre, descripcion, formato_existente, nombre_archivo = codigo_existente
+                    # Formato: (id, codigo_barras, id_unico, fecha_creacion, nombres, apellidos, descripcion, formato, nombre_archivo)
+                    id_db = codigo_existente[0]
+                    codigo_barras = codigo_existente[1]
+                    id_unico = codigo_existente[2]
+                    fecha = codigo_existente[3]
+                    nombres_existentes = codigo_existente[4]
+                    apellidos_existentes = codigo_existente[5]
+                    descripcion = codigo_existente[6]
+                    formato_existente = codigo_existente[7]
+                    nombre_archivo = codigo_existente[8] if len(codigo_existente) > 8 else None
                     
                     # Si hay código inválido y el usuario quiere regenerarlo
                     if regenerar_invalidos and nombre_archivo:
@@ -752,7 +767,7 @@ class MainController:
                     )
                     
                     codigo_barras, id_unico_archivo, ruta_imagen = self.barcode_service.generar_codigo_barras(
-                        id_unico_generado, formato, id_unico_generado, nombre_empleado
+                        id_unico_generado, formato, id_unico_generado, nombres, apellidos
                     )
                     
                     # Validar código generado
@@ -764,7 +779,7 @@ class MainController:
                         if ruta_imagen.exists():
                             ruta_imagen.unlink()
                         errores_final.append(
-                            f"Fila {row_idx} ({nombre_empleado}): {mensaje_error}"
+                            f"Fila {row_idx} ({nombre_completo}): {mensaje_error}"
                         )
                         continue
                     
@@ -773,21 +788,21 @@ class MainController:
                     # Guardar en base de datos
                     exito = self.db_manager.insertar_codigo(
                         codigo_barras, id_unico_generado, formato, 
-                        nombre_empleado, codigo_empleado, nombre_archivo
+                        nombres, apellidos, codigo_empleado, nombre_archivo
                     )
                     
                     if not exito:
                         if ruta_imagen.exists():
                             ruta_imagen.unlink()
                         errores_final.append(
-                            f"Fila {row_idx} ({nombre_empleado}): No se pudo guardar en la base de datos"
+                            f"Fila {row_idx} ({nombre_completo}): No se pudo guardar en la base de datos"
                         )
                     else:
                         exitosos_final += 1
                         
                 except Exception as e:
                     errores_final.append(
-                        f"Fila {row_idx} ({nombre_empleado}): {str(e)}"
+                        f"Fila {row_idx} ({nombre_completo}): {str(e)}"
                     )
             
             progress_dialog.close()

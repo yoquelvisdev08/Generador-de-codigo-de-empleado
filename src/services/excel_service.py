@@ -52,14 +52,15 @@ class ExcelService:
             
             # Obtener estructura dinámica de la base de datos
             # Las columnas son: id, codigo_barras, id_unico, fecha_creacion, 
-            # nombre_empleado, descripcion, formato, nombre_archivo
+            # nombres, apellidos, descripcion, formato, nombre_archivo
             # Nota: nombre_archivo se excluye de la exportación de códigos de barras
             columnas = [
                 "ID",
                 "Código de Barras",
                 "ID Único",
                 "Fecha de Creación",
-                "Nombre del Empleado",
+                "Nombres",
+                "Apellidos",
                 "Código de Empleado",
                 "Formato"
             ]
@@ -79,12 +80,12 @@ class ExcelService:
             # Escribir datos (excluyendo nombre_archivo que es el último campo)
             for row_idx, codigo in enumerate(codigos, start=2):
                 # codigo es una tupla: (id, codigo_barras, id_unico, fecha_creacion, 
-                # nombre_empleado, descripcion, formato, nombre_archivo)
-                # Solo escribimos los primeros 7 campos (excluyendo nombre_archivo)
+                # nombres, apellidos, descripcion, formato, nombre_archivo)
+                # Solo escribimos los primeros 8 campos (excluyendo nombre_archivo)
                 for col_idx in range(len(columnas)):
                     valor = codigo[col_idx] if col_idx < len(codigo) else ""
-                    # Si es la columna de formato (índice 6) y está vacío, usar formato por defecto
-                    if col_idx == 6 and (not valor or valor == ""):
+                    # Si es la columna de formato (índice 7) y está vacío, usar formato por defecto
+                    if col_idx == 7 and (not valor or valor == ""):
                         valor = formato_por_defecto or "Code128"
                     ws.cell(row=row_idx, column=col_idx + 1, value=valor)
             
@@ -120,7 +121,8 @@ class ExcelService:
             
             # Columnas requeridas y opcionales
             columnas = [
-                "Nombre del Empleado",  # Obligatorio
+                "Nombres",              # Obligatorio
+                "Apellidos",            # Obligatorio
                 "Código de Empleado",   # Obligatorio
                 "Formato (opcional)"    # Opcional (por defecto Code128)
             ]
@@ -142,9 +144,9 @@ class ExcelService:
             
             # Datos de ejemplo (todos con el formato seleccionado)
             datos_ejemplo = [
-                ("Juan Pérez", "EMP001", formato_a_usar),
-                ("María García", "EMP002", formato_a_usar),
-                ("Carlos López", "EMP003", formato_a_usar),
+                ("Juan", "Pérez", "EMP001", formato_a_usar),
+                ("María", "García", "EMP002", formato_a_usar),
+                ("Carlos", "López", "EMP003", formato_a_usar),
             ]
             
             # Escribir datos de ejemplo
@@ -201,7 +203,8 @@ class ExcelService:
             
             # Buscar índices de columnas requeridas
             try:
-                idx_nombre = headers.index("Nombre del Empleado")
+                idx_nombres = headers.index("Nombres")
+                idx_apellidos = headers.index("Apellidos")
                 idx_codigo_empleado = headers.index("Código de Empleado")
                 # Buscar "Formato (opcional)" o "Formato" para compatibilidad
                 idx_formato = None
@@ -210,7 +213,7 @@ class ExcelService:
                 elif "Formato" in headers:
                     idx_formato = headers.index("Formato")
             except ValueError as e:
-                return False, {}, [f"Columna requerida no encontrada: {str(e)}"]
+                return False, {}, [f"Columna requerida no encontrada: {str(e)}. Asegúrese de tener las columnas: Nombres, Apellidos y Código de Empleado"]
             
             # Estadísticas
             estadisticas = {
@@ -235,18 +238,20 @@ class ExcelService:
                     )
                 
                 # Leer datos de la fila
-                nombre_empleado = ws.cell(row=row_idx, column=idx_nombre + 1).value
+                nombres = ws.cell(row=row_idx, column=idx_nombres + 1).value
+                apellidos = ws.cell(row=row_idx, column=idx_apellidos + 1).value
                 codigo_empleado = ws.cell(row=row_idx, column=idx_codigo_empleado + 1).value
                 formato = ws.cell(row=row_idx, column=idx_formato + 1).value if idx_formato is not None else None
                 
                 # Validar datos obligatorios
-                if not nombre_empleado or not codigo_empleado:
+                if not nombres or not apellidos or not codigo_empleado:
                     estadisticas['errores'] += 1
-                    errores.append(f"Fila {row_idx}: Faltan datos obligatorios (Nombre o Código de Empleado)")
+                    errores.append(f"Fila {row_idx}: Faltan datos obligatorios (Nombres, Apellidos o Código de Empleado)")
                     continue
                 
                 # Limpiar valores
-                nombre_empleado = str(nombre_empleado).strip()
+                nombres = str(nombres).strip()
+                apellidos = str(apellidos).strip()
                 codigo_empleado = str(codigo_empleado).strip()
                 # Usar formato del Excel si existe, sino el formato por defecto, sino Code128
                 formato = str(formato).strip() if formato else (formato_por_defecto or "Code128")
@@ -264,14 +269,25 @@ class ExcelService:
                 todos_codigos = self.db_manager.obtener_todos_codigos()
                 codigo_existente = None
                 for codigo in todos_codigos:
-                    # codigo es: (id, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo)
-                    if len(codigo) >= 6 and codigo[5] == codigo_empleado:  # descripcion es índice 5
+                    # codigo es: (id, codigo_barras, id_unico, fecha_creacion, nombres, apellidos, descripcion, formato, nombre_archivo)
+                    if len(codigo) >= 7 and codigo[6] == codigo_empleado:  # descripcion es índice 6
                         codigo_existente = codigo
                         break
                 
                 if codigo_existente:
                     # Si existe, verificar si tiene código de barras válido
-                    id_db, codigo_barras, id_unico, fecha, nombre, descripcion, formato_existente, nombre_archivo = codigo_existente
+                    # Formato: (id, codigo_barras, id_unico, fecha_creacion, nombres, apellidos, descripcion, formato, nombre_archivo)
+                    id_db = codigo_existente[0]
+                    codigo_barras = codigo_existente[1]
+                    id_unico = codigo_existente[2]
+                    fecha = codigo_existente[3]
+                    nombres_existentes = codigo_existente[4]
+                    apellidos_existentes = codigo_existente[5]
+                    descripcion = codigo_existente[6]
+                    formato_existente = codigo_existente[7]
+                    nombre_archivo = codigo_existente[8] if len(codigo_existente) > 8 else None
+                    
+                    nombre_completo = f"{nombres} {apellidos}"
                     
                     # Verificar si el código de barras es válido
                     from config.settings import IMAGES_DIR
@@ -285,7 +301,7 @@ class ExcelService:
                             if not valido:
                                 estadisticas['validacion_fallida'] += 1
                                 errores.append(
-                                    f"Fila {row_idx} ({nombre_empleado}): "
+                                    f"Fila {row_idx} ({nombre_completo}): "
                                     f"El código de barras existente no es válido. "
                                     f"¿Desea regenerarlo? (Se requiere confirmación manual)"
                                 )
@@ -293,7 +309,7 @@ class ExcelService:
                     
                     estadisticas['duplicados'] += 1
                     errores.append(
-                        f"Fila {row_idx} ({nombre_empleado}): "
+                        f"Fila {row_idx} ({nombre_completo}): "
                         f"El código de empleado '{codigo_empleado}' ya existe en la base de datos"
                     )
                     continue

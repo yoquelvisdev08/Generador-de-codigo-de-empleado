@@ -82,7 +82,8 @@ class DatabaseManager:
                     codigo_barras TEXT UNIQUE NOT NULL,
                     id_unico TEXT UNIQUE NOT NULL,
                     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    nombre_empleado TEXT,
+                    nombres TEXT,
+                    apellidos TEXT,
                     descripcion TEXT,
                     formato TEXT NOT NULL,
                     nombre_archivo TEXT
@@ -98,11 +99,65 @@ class DatabaseManager:
                 except sqlite3.OperationalError:
                     pass
             
-            if 'nombre_empleado' not in columnas_existentes:
-                try:
-                    cursor.execute("ALTER TABLE codigos_barras ADD COLUMN nombre_empleado TEXT")
-                except sqlite3.OperationalError:
-                    pass
+            # Migración: de nombre_empleado a nombres y apellidos
+            if 'nombre_empleado' in columnas_existentes:
+                # Si existe la columna antigua, migrar a las nuevas
+                if 'nombres' not in columnas_existentes:
+                    try:
+                        cursor.execute("ALTER TABLE codigos_barras ADD COLUMN nombres TEXT")
+                    except sqlite3.OperationalError:
+                        pass
+                
+                if 'apellidos' not in columnas_existentes:
+                    try:
+                        cursor.execute("ALTER TABLE codigos_barras ADD COLUMN apellidos TEXT")
+                    except sqlite3.OperationalError:
+                        pass
+                
+                # Migrar datos: dividir nombre_empleado en nombres y apellidos
+                cursor.execute("SELECT id, nombre_empleado FROM codigos_barras WHERE nombre_empleado IS NOT NULL")
+                registros = cursor.fetchall()
+                
+                for registro in registros:
+                    id_registro = registro[0]
+                    nombre_completo = registro[1] or ""
+                    
+                    # Dividir el nombre completo en nombres y apellidos
+                    partes = nombre_completo.strip().split()
+                    if len(partes) == 0:
+                        nombres = ""
+                        apellidos = ""
+                    elif len(partes) == 1:
+                        nombres = partes[0]
+                        apellidos = ""
+                    else:
+                        # Asumir que la primera parte es el nombre y el resto son apellidos
+                        nombres = partes[0]
+                        apellidos = " ".join(partes[1:])
+                    
+                    cursor.execute("""
+                        UPDATE codigos_barras 
+                        SET nombres = ?, apellidos = ? 
+                        WHERE id = ?
+                    """, (nombres, apellidos, id_registro))
+                
+                # Después de migrar, eliminar la columna antigua
+                # SQLite no soporta DROP COLUMN directamente en versiones antiguas,
+                # pero podemos dejar la columna por compatibilidad
+                logger.info("Migración de nombre_empleado a nombres/apellidos completada")
+            else:
+                # Si no existe nombre_empleado, asegurar que existen nombres y apellidos
+                if 'nombres' not in columnas_existentes:
+                    try:
+                        cursor.execute("ALTER TABLE codigos_barras ADD COLUMN nombres TEXT")
+                    except sqlite3.OperationalError:
+                        pass
+                
+                if 'apellidos' not in columnas_existentes:
+                    try:
+                        cursor.execute("ALTER TABLE codigos_barras ADD COLUMN apellidos TEXT")
+                    except sqlite3.OperationalError:
+                        pass
             
             # Crear índices para mejorar el rendimiento
             cursor.execute("""
@@ -121,8 +176,13 @@ class DatabaseManager:
             """)
             
             cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_nombre_empleado 
-                ON codigos_barras(nombre_empleado)
+                CREATE INDEX IF NOT EXISTS idx_nombres 
+                ON codigos_barras(nombres)
+            """)
+            
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_apellidos 
+                ON codigos_barras(apellidos)
             """)
             
             # Índices para tabla de usuarios
@@ -251,7 +311,8 @@ class DatabaseManager:
             return cursor.fetchone() is not None
     
     def insertar_codigo(self, codigo_barras: str, id_unico: str, 
-                       formato: str, nombre_empleado: Optional[str] = None,
+                       formato: str, nombres: Optional[str] = None,
+                       apellidos: Optional[str] = None,
                        descripcion: Optional[str] = None,
                        nombre_archivo: Optional[str] = None) -> bool:
         """
@@ -261,7 +322,8 @@ class DatabaseManager:
             codigo_barras: Código de barras
             id_unico: ID único del código
             formato: Formato del código (Code128, EAN13, etc.)
-            nombre_empleado: Nombre del empleado (opcional)
+            nombres: Nombres del empleado (opcional)
+            apellidos: Apellidos del empleado (opcional)
             descripcion: Descripción (opcional)
             nombre_archivo: Nombre del archivo de imagen (opcional)
             
@@ -278,9 +340,9 @@ class DatabaseManager:
             try:
                 cursor.execute("""
                     INSERT INTO codigos_barras 
-                    (codigo_barras, id_unico, formato, nombre_empleado, descripcion, nombre_archivo)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (codigo_barras, id_unico, formato, nombre_empleado, descripcion, nombre_archivo))
+                    (codigo_barras, id_unico, formato, nombres, apellidos, descripcion, nombre_archivo)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (codigo_barras, id_unico, formato, nombres, apellidos, descripcion, nombre_archivo))
                 
                 conn.commit()
                 logger.info(f"Código insertado: {id_unico}")
@@ -296,12 +358,13 @@ class DatabaseManager:
         
         Returns:
             Lista de tuplas con los datos de los códigos
+            Formato: (id, codigo_barras, id_unico, fecha_creacion, nombres, apellidos, descripcion, formato, nombre_archivo)
         """
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT id, codigo_barras, id_unico, fecha_creacion, 
-                       nombre_empleado, descripcion, formato, nombre_archivo
+                       nombres, apellidos, descripcion, formato, nombre_archivo
                 FROM codigos_barras
                 ORDER BY fecha_creacion DESC
             """)
@@ -365,6 +428,7 @@ class DatabaseManager:
             
         Returns:
             Lista de tuplas con los códigos que coinciden
+            Formato: (id, codigo_barras, id_unico, fecha_creacion, nombres, apellidos, descripcion, formato, nombre_archivo)
         """
         termino_busqueda = f"%{termino}%"
         
@@ -372,14 +436,15 @@ class DatabaseManager:
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT id, codigo_barras, id_unico, fecha_creacion, 
-                       nombre_empleado, descripcion, formato, nombre_archivo
+                       nombres, apellidos, descripcion, formato, nombre_archivo
                 FROM codigos_barras
                 WHERE codigo_barras LIKE ? 
                    OR id_unico LIKE ? 
-                   OR nombre_empleado LIKE ? 
+                   OR nombres LIKE ? 
+                   OR apellidos LIKE ?
                    OR descripcion LIKE ?  -- Código de empleado
                 ORDER BY fecha_creacion DESC
-            """, (termino_busqueda, termino_busqueda, termino_busqueda, termino_busqueda))
+            """, (termino_busqueda, termino_busqueda, termino_busqueda, termino_busqueda, termino_busqueda))
             
             return cursor.fetchall()
     

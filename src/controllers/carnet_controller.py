@@ -19,6 +19,17 @@ from src.views.widgets.carnet_preview_panel import CarnetPreviewPanel
 from src.views.widgets.carnet_controls_panel import CarnetControlsPanel
 from src.views.widgets.carnet_employees_panel import CarnetEmployeesPanel
 
+# Importar OCRVerifier solo si está disponible
+try:
+    from src.services.ocr_verifier import OCRVerifier
+    OCR_DISPONIBLE = True
+except (ImportError, RuntimeError, OSError) as e:
+    # Capturar errores de importación, inicialización o DLL
+    OCRVerifier = None
+    OCR_DISPONIBLE = False
+    import logging
+    logging.getLogger(__name__).warning(f"OCR no disponible: {e}")
+
 
 class CarnetController:
     """Controlador para el editor de carnet"""
@@ -45,6 +56,33 @@ class CarnetController:
         self.designer = CarnetDesigner()
         self.html_renderer = HTMLRenderer()
         
+        # Inicializar OCR solo si está disponible
+        if OCR_DISPONIBLE:
+            try:
+                self.ocr_verifier = OCRVerifier()
+                self.usar_ocr = True
+                import logging
+                logging.getLogger(__name__).info("✓ Verificación OCR (Tesseract) habilitada")
+            except Exception as e:
+                self.ocr_verifier = None
+                self.usar_ocr = False
+                import logging
+                logger_ocr = logging.getLogger(__name__)
+                logger_ocr.warning("=" * 60)
+                logger_ocr.warning("⚠ OCR NO DISPONIBLE")
+                logger_ocr.warning("=" * 60)
+                logger_ocr.warning(f"Error: {e}")
+                logger_ocr.warning("")
+                logger_ocr.warning("SOLUCIÓN: Instala Visual C++ Redistributables:")
+                logger_ocr.warning("https://aka.ms/vs/17/release/vc_redist.x64.exe")
+                logger_ocr.warning("Luego reinicia la aplicación")
+                logger_ocr.warning("=" * 60)
+        else:
+            self.ocr_verifier = None
+            self.usar_ocr = False
+            import logging
+            logging.getLogger(__name__).warning("⚠ OCR no disponible - generación sin verificación. Instala 'pytesseract' y Tesseract OCR para habilitar verificación.")
+        
         self.empleado_actual = None
         self._conectar_senales()
         self._cargar_empleados()
@@ -53,6 +91,135 @@ class CarnetController:
         # Actualizar vista previa inicial después de un breve delay
         from PyQt6.QtCore import QTimer
         QTimer.singleShot(500, self.actualizar_vista_previa)
+    
+    def _desempaquetar_empleado(self, empleado):
+        """
+        Desempaqueta los datos del empleado de manera consistente
+        
+        Args:
+            empleado: Tupla con datos del empleado
+            
+        Returns:
+            dict con los datos del empleado: id_db, codigo_barras, id_unico, nombres, apellidos, 
+            descripcion, formato, nombre_archivo, nombre_empleado (completo)
+        """
+        if not empleado:
+            return None
+        
+        # Formato nuevo: (id, codigo_barras, id_unico, nombres, apellidos, descripcion, formato, nombre_archivo)
+        # Formato antiguo con fecha: (id, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo)
+        # Formato antiguo sin fecha: (id, codigo_barras, id_unico, nombre_empleado, descripcion, formato, nombre_archivo)
+        
+        resultado = {
+            'id_db': None,
+            'codigo_barras': None,
+            'id_unico': None,
+            'nombres': '',
+            'apellidos': '',
+            'descripcion': '',
+            'formato': '',
+            'nombre_archivo': '',
+            'nombre_empleado': ''  # nombre completo
+        }
+        
+        try:
+            if len(empleado) >= 9:
+                # Nuevo formato con nombres y apellidos separados (con fecha_creacion)
+                id_db, codigo_barras, id_unico, fecha_creacion, nombres, apellidos, descripcion, formato, nombre_archivo = empleado
+                resultado['id_db'] = id_db
+                resultado['codigo_barras'] = codigo_barras
+                resultado['id_unico'] = id_unico
+                resultado['nombres'] = nombres or ''
+                resultado['apellidos'] = apellidos or ''
+                resultado['descripcion'] = descripcion or ''
+                resultado['formato'] = formato or ''
+                resultado['nombre_archivo'] = nombre_archivo or ''
+                resultado['nombre_empleado'] = f"{nombres or ''} {apellidos or ''}".strip()
+            elif len(empleado) >= 8:
+                # Puede ser formato nuevo sin fecha o formato antiguo con fecha
+                # Intentamos detectar: si el índice 3 parece una fecha o un string corto, es formato antiguo
+                # Formato nuevo: (id, codigo_barras, id_unico, nombres, apellidos, descripcion, formato, nombre_archivo)
+                # Formato antiguo: (id, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo)
+                
+                # Asumimos formato nuevo primero (sin fecha_creacion)
+                id_db, codigo_barras, id_unico, nombres, apellidos, descripcion, formato, nombre_archivo = empleado
+                
+                # Si nombres y apellidos parecen correctos, es formato nuevo
+                if isinstance(nombres, str) and isinstance(apellidos, str):
+                    resultado['id_db'] = id_db
+                    resultado['codigo_barras'] = codigo_barras
+                    resultado['id_unico'] = id_unico
+                    resultado['nombres'] = nombres or ''
+                    resultado['apellidos'] = apellidos or ''
+                    resultado['descripcion'] = descripcion or ''
+                    resultado['formato'] = formato or ''
+                    resultado['nombre_archivo'] = nombre_archivo or ''
+                    resultado['nombre_empleado'] = f"{nombres or ''} {apellidos or ''}".strip()
+                else:
+                    # Es formato antiguo con fecha, re-desempaquetar
+                    id_db, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo = empleado
+                    partes = nombre_empleado.strip().split()
+                    if len(partes) >= 2:
+                        nombres = partes[0]
+                        apellidos = " ".join(partes[1:])
+                    else:
+                        nombres = nombre_empleado
+                        apellidos = ''
+                    
+                    resultado['id_db'] = id_db
+                    resultado['codigo_barras'] = codigo_barras
+                    resultado['id_unico'] = id_unico
+                    resultado['nombres'] = nombres
+                    resultado['apellidos'] = apellidos
+                    resultado['descripcion'] = descripcion or ''
+                    resultado['formato'] = formato or ''
+                    resultado['nombre_archivo'] = nombre_archivo or ''
+                    resultado['nombre_empleado'] = nombre_empleado
+            elif len(empleado) >= 7:
+                # Formato antiguo sin fecha
+                id_db, codigo_barras, id_unico, nombre_empleado, descripcion, formato, nombre_archivo = empleado
+                partes = nombre_empleado.strip().split()
+                if len(partes) >= 2:
+                    nombres = partes[0]
+                    apellidos = " ".join(partes[1:])
+                else:
+                    nombres = nombre_empleado
+                    apellidos = ''
+                
+                resultado['id_db'] = id_db
+                resultado['codigo_barras'] = codigo_barras
+                resultado['id_unico'] = id_unico
+                resultado['nombres'] = nombres
+                resultado['apellidos'] = apellidos
+                resultado['descripcion'] = descripcion or ''
+                resultado['formato'] = formato or ''
+                resultado['nombre_archivo'] = nombre_archivo or ''
+                resultado['nombre_empleado'] = nombre_empleado
+            elif len(empleado) >= 6:
+                id_db, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo = empleado
+                partes = nombre_empleado.strip().split()
+                if len(partes) >= 2:
+                    nombres = partes[0]
+                    apellidos = " ".join(partes[1:])
+                else:
+                    nombres = nombre_empleado
+                    apellidos = ''
+                
+                resultado['id_db'] = id_db
+                resultado['codigo_barras'] = codigo_barras
+                resultado['id_unico'] = id_unico
+                resultado['nombres'] = nombres
+                resultado['apellidos'] = apellidos
+                resultado['descripcion'] = ''
+                resultado['formato'] = formato or ''
+                resultado['nombre_archivo'] = nombre_archivo or ''
+                resultado['nombre_empleado'] = nombre_empleado
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Error al desempaquetar empleado: {e}")
+            return None
+        
+        return resultado
     
     def _conectar_senales(self):
         """Conecta las señales de los widgets"""
@@ -121,31 +288,40 @@ class CarnetController:
     
     def _actualizar_variables_desde_empleado(self, empleado):
         """Actualiza las variables del panel con datos del empleado seleccionado"""
-        if not empleado:
+        emp = self._desempaquetar_empleado(empleado)
+        if not emp:
             return
         
-        # Desempaquetar: puede ser varios formatos
-        if len(empleado) >= 7:
-            id_db, codigo_barras, id_unico, nombre_empleado, descripcion, formato, nombre_archivo = empleado
-        elif len(empleado) >= 6:
-            id_db, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo = empleado
-            descripcion = ""
-        else:
-            return
-        
-        codigo_path = IMAGES_DIR / nombre_archivo
+        codigo_path = IMAGES_DIR / emp['nombre_archivo']
         
         # Actualizar campos de variables dinámicamente
-        if nombre_empleado and "nombre" in self.controls_panel.campos_variables:
+        if emp['nombre_empleado'] and "nombre" in self.controls_panel.campos_variables:
             campo_nombre = self.controls_panel.campos_variables["nombre"]
             if not isinstance(campo_nombre, dict):
-                campo_nombre.setText(nombre_empleado)
+                campo_nombre.setText(emp['nombre_empleado'])
+        
+        # Actualizar campos de nombres separados si existen
+        if "nombres" in self.controls_panel.campos_variables:
+            campo_nombres = self.controls_panel.campos_variables["nombres"]
+            if not isinstance(campo_nombres, dict):
+                campo_nombres.setText(emp['nombres'])
+        
+        if "apellidos" in self.controls_panel.campos_variables:
+            campo_apellidos = self.controls_panel.campos_variables["apellidos"]
+            if not isinstance(campo_apellidos, dict):
+                campo_apellidos.setText(emp['apellidos'])
         
         # Actualizar ID único (automático)
         if "id_unico" in self.controls_panel.campos_variables:
             campo_id = self.controls_panel.campos_variables["id_unico"]
             if not isinstance(campo_id, dict):
-                campo_id.setText(id_unico or "")
+                campo_id.setText(emp['id_unico'] or "")
+        
+        # Actualizar descripción si existe
+        if "descripcion" in self.controls_panel.campos_variables:
+            campo_desc = self.controls_panel.campos_variables["descripcion"]
+            if not isinstance(campo_desc, dict):
+                campo_desc.setText(emp['descripcion'] or "")
         
         # Actualizar código de barras (automático)
         if "codigo_barras" in self.controls_panel.campos_variables:
@@ -198,31 +374,21 @@ class CarnetController:
         
         # Variables automáticas (vienen de la base de datos)
         if self.empleado_actual:
-            # Desempaquetar: puede ser 6, 7 u 8 elementos
-            if len(self.empleado_actual) >= 8:
-                id_db, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo = self.empleado_actual
-            elif len(self.empleado_actual) >= 7:
-                id_db, codigo_barras, id_unico, nombre_empleado, descripcion, formato, nombre_archivo = self.empleado_actual
-            elif len(self.empleado_actual) >= 6:
-                id_db, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo = self.empleado_actual
-                descripcion = ""
-            else:
-                descripcion = ""
-                nombre_empleado = "SIN NOMBRE"
-                id_unico = ""
-                nombre_archivo = ""
+            emp = self._desempaquetar_empleado(self.empleado_actual)
+            if not emp:
+                return
             
-            nombre = nombre_empleado or "SIN NOMBRE"
-            codigo_path = IMAGES_DIR / nombre_archivo if nombre_archivo else Path("")
+            nombre = emp['nombre_empleado'] or "SIN NOMBRE"
+            codigo_path = IMAGES_DIR / emp['nombre_archivo'] if emp['nombre_archivo'] else Path("")
             
             # ID único siempre se obtiene del empleado
             if "id_unico" in variables_template:
-                variables["id_unico"] = id_unico or ""
+                variables["id_unico"] = emp['id_unico'] or ""
                 # Actualizar campo en la UI si existe
                 if "id_unico" in self.controls_panel.campos_variables:
                     campo_id = self.controls_panel.campos_variables["id_unico"]
                     if not isinstance(campo_id, dict):
-                        campo_id.setText(id_unico or "")
+                        campo_id.setText(emp['id_unico'] or "")
             
             # Código de barras como imagen
             if "codigo_barras" in variables_template:
@@ -240,9 +406,16 @@ class CarnetController:
             if "nombre" in variables_template:
                 variables["nombre"] = variables_usuario.get("nombre", nombre) or nombre
             
+            # Nombres y apellidos separados (nuevas variables)
+            if "nombres" in variables_template:
+                variables["nombres"] = variables_usuario.get("nombres", emp['nombres']) or emp['nombres']
+            
+            if "apellidos" in variables_template:
+                variables["apellidos"] = variables_usuario.get("apellidos", emp['apellidos']) or emp['apellidos']
+            
             # Código de empleado (descripcion)
             if "descripcion" in variables_template:
-                variables["descripcion"] = variables_usuario.get("descripcion", descripcion) or descripcion
+                variables["descripcion"] = variables_usuario.get("descripcion", emp['descripcion']) or emp['descripcion']
         else:
             # Datos de ejemplo
             if "id_unico" in variables_template:
@@ -259,6 +432,10 @@ class CarnetController:
                         campo_codigo["campo"].setText("No disponible (ejemplo)")
             if "nombre" in variables_template:
                 variables["nombre"] = variables_usuario.get("nombre", "EJEMPLO") or "EJEMPLO"
+            if "nombres" in variables_template:
+                variables["nombres"] = variables_usuario.get("nombres", "JUAN") or "JUAN"
+            if "apellidos" in variables_template:
+                variables["apellidos"] = variables_usuario.get("apellidos", "PÉREZ") or "PÉREZ"
         
         # Foto siempre vacía por ahora
         if "foto" in variables_template:
@@ -328,20 +505,14 @@ class CarnetController:
             nombre = "EJEMPLO"
             codigo_path = None
         else:
-            # Desempaquetar: puede ser 6, 7 u 8 elementos
-            if len(self.empleado_actual) >= 8:
-                id_db, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo = self.empleado_actual
-            elif len(self.empleado_actual) >= 7:
-                id_db, codigo_barras, id_unico, nombre_empleado, descripcion, formato, nombre_archivo = self.empleado_actual
-            elif len(self.empleado_actual) >= 6:
-                id_db, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo = self.empleado_actual
-            else:
+            emp = self._desempaquetar_empleado(self.empleado_actual)
+            if not emp:
                 nombre = "SIN NOMBRE"
                 codigo_path = None
                 return
             
-            nombre = nombre_empleado or "SIN NOMBRE"
-            codigo_path = IMAGES_DIR / nombre_archivo
+            nombre = emp['nombre_empleado'] or "SIN NOMBRE"
+            codigo_path = IMAGES_DIR / emp['nombre_archivo']
         
         # Obtener template actualizado
         template = self.controls_panel.obtener_template_actualizado()
@@ -388,15 +559,9 @@ class CarnetController:
             )
             return
         
-        # Desempaquetar para obtener datos del empleado antes del diálogo
-        if len(empleado) >= 8:
-            id_db, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo = empleado
-        elif len(empleado) >= 7:
-            id_db, codigo_barras, id_unico, nombre_empleado, descripcion, formato, nombre_archivo = empleado
-        elif len(empleado) >= 6:
-            id_db, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo = empleado
-            descripcion = ""
-        else:
+        # Desempaquetar para obtener datos del empleado
+        emp = self._desempaquetar_empleado(empleado)
+        if not emp:
             QMessageBox.warning(
                 self.employees_panel,
                 "Error",
@@ -407,8 +572,8 @@ class CarnetController:
         # Pedir al usuario dónde guardar el PNG
         fecha_hora = datetime.now().strftime("%Y%m%d_%H%M%S")
         from src.utils.file_utils import limpiar_nombre_archivo
-        nombre_limpio = limpiar_nombre_archivo(nombre_empleado or "sin_nombre")
-        nombre_png_default = f"carnet_{nombre_limpio}_{id_unico}_{fecha_hora}.png"
+        nombre_limpio = limpiar_nombre_archivo(emp['nombre_empleado'] or "sin_nombre")
+        nombre_png_default = f"carnet_{nombre_limpio}_{emp['id_unico']}_{fecha_hora}.png"
         
         ruta_png, _ = QFileDialog.getSaveFileName(
             self.employees_panel,
@@ -434,12 +599,12 @@ class CarnetController:
         QApplication.processEvents()
         
         # Ruta del código de barras
-        codigo_path = IMAGES_DIR / nombre_archivo
+        codigo_path = IMAGES_DIR / emp['nombre_archivo']
         if not codigo_path.exists():
             QMessageBox.warning(
                 self.employees_panel,
                 "Error",
-                f"No se encontró la imagen del código de barras: {nombre_archivo}"
+                f"No se encontró la imagen del código de barras: {emp['nombre_archivo']}"
             )
             return
         
@@ -462,15 +627,19 @@ class CarnetController:
                 variables = {}
                 
                 # Datos del empleado
-                nombre = nombre_empleado or "SIN NOMBRE"
+                nombre = emp['nombre_empleado'] or "SIN NOMBRE"
                 if "id_unico" in variables_template:
-                    variables["id_unico"] = id_unico
+                    variables["id_unico"] = emp['id_unico']
                 if "codigo_barras" in variables_template:
                     variables["codigo_barras"] = codigo_path
                 if "nombre" in variables_template:
                     variables["nombre"] = variables_usuario.get("nombre", nombre) or nombre
+                if "nombres" in variables_template:
+                    variables["nombres"] = variables_usuario.get("nombres", emp['nombres']) or emp['nombres']
+                if "apellidos" in variables_template:
+                    variables["apellidos"] = variables_usuario.get("apellidos", emp['apellidos']) or emp['apellidos']
                 if "descripcion" in variables_template:
-                    variables["descripcion"] = variables_usuario.get("descripcion", descripcion) or descripcion
+                    variables["descripcion"] = variables_usuario.get("descripcion", emp['descripcion']) or emp['descripcion']
                 
                 # Logo y foto
                 if "logo" in variables_template:
@@ -616,7 +785,7 @@ class CarnetController:
                 template = self.controls_panel.obtener_template_actualizado()
                 imagen = self.designer.renderizar_carnet(
                     template=template,
-                    nombre_empleado=nombre_empleado or "SIN NOMBRE",
+                    nombre_empleado=emp['nombre_empleado'] or "SIN NOMBRE",
                     codigo_barras_path=str(codigo_path),
                     empresa=template.empresa_texto if template.mostrar_empresa else None,
                     web=template.web_texto if template.mostrar_web else None
@@ -649,6 +818,127 @@ class CarnetController:
                     "Error",
                     f"Error al generar carnet: {str(e)}"
                 )
+    
+    def _generar_carnet_con_verificacion_ocr(
+        self,
+        funcion_generacion: callable,
+        empleado_datos: dict,
+        ruta_salida: Path,
+        verificar_ocr: bool = True,
+        max_reintentos: int = 3,
+        callback_progreso: Optional[callable] = None
+    ) -> tuple[bool, str, Optional[Path]]:
+        """
+        Genera un carnet y verifica con OCR que se generó correctamente.
+        
+        Args:
+            funcion_generacion: Función que genera el carnet y retorna PIL.Image
+            empleado_datos: Diccionario con datos del empleado (nombres, apellidos, etc.)
+            ruta_salida: Path donde guardar el carnet
+            verificar_ocr: Si True, verifica con OCR (default: True)
+            max_reintentos: Número máximo de intentos (default: 3)
+        
+        Returns:
+            Tupla (exito, mensaje, ruta_imagen)
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # Si OCR no está disponible o no se quiere verificar, simplemente generar
+        if not verificar_ocr or not self.usar_ocr or not self.ocr_verifier:
+            try:
+                imagen = funcion_generacion()
+                if imagen:
+                    imagen.save(ruta_salida, "PNG", dpi=(600, 600), optimize=False, compress_level=1)
+                    return True, "Carnet generado exitosamente (sin verificación OCR)", ruta_salida
+                else:
+                    return False, "Error al generar carnet", None
+            except Exception as e:
+                return False, f"Error al generar carnet: {str(e)}", None
+        
+        # Generar con verificación OCR
+        for intento in range(1, max_reintentos + 1):
+            try:
+                logger.info(f"Generando carnet (intento {intento}/{max_reintentos})...")
+                logger.info(f"Datos del empleado: nombres={empleado_datos.get('nombres')}, apellidos={empleado_datos.get('apellidos')}, descripcion={empleado_datos.get('descripcion')}, id_unico={empleado_datos.get('id_unico')}")
+                
+                if callback_progreso:
+                    callback_progreso(f"Generando carnet (intento {intento}/{max_reintentos})...")
+                
+                # Generar imagen
+                imagen = funcion_generacion()
+                
+                if not imagen:
+                    logger.warning(f"Intento {intento}: Generación falló, no se creó la imagen")
+                    if intento < max_reintentos:
+                        import time
+                        time.sleep(0.3)
+                    continue
+                
+                # Guardar imagen temporal para verificación
+                imagen.save(ruta_salida, "PNG", dpi=(600, 600), optimize=False, compress_level=1)
+                
+                # Preparar datos esperados para OCR
+                datos_esperados = {}
+                if empleado_datos.get('nombres'):
+                    datos_esperados['nombres'] = empleado_datos['nombres']
+                if empleado_datos.get('apellidos'):
+                    datos_esperados['apellidos'] = empleado_datos['apellidos']
+                if empleado_datos.get('descripcion'):
+                    datos_esperados['descripcion'] = empleado_datos['descripcion']
+                if empleado_datos.get('id_unico'):
+                    datos_esperados['id_unico'] = empleado_datos['id_unico']
+                
+                logger.info(f"Datos esperados para OCR: {datos_esperados}")
+                
+                # Verificar con OCR
+                if callback_progreso:
+                    callback_progreso(f"Verificando con OCR (intento {intento}/{max_reintentos})...")
+                logger.info(f"Verificando carnet con OCR (intento {intento})...")
+                exito_ocr, mensaje_ocr, detalles = self.ocr_verifier.verificar_carnet(
+                    ruta_salida,
+                    datos_esperados,
+                    umbral_similitud=0.65  # Umbral más bajo para tolerar errores menores de OCR
+                )
+                
+                if exito_ocr:
+                    logger.info(f"✓ Carnet verificado correctamente en intento {intento}")
+                    if callback_progreso:
+                        callback_progreso(f"✓ Verificado correctamente")
+                    return True, f"Carnet generado y verificado: {mensaje_ocr}", ruta_salida
+                else:
+                    logger.warning(f"✗ Intento {intento} falló verificación: {mensaje_ocr}")
+                    logger.warning(f"Detalles de verificación: {detalles}")
+                    if callback_progreso:
+                        callback_progreso(f"✗ Verificación falló: {mensaje_ocr}. Reintentando...")
+                    if intento < max_reintentos:
+                        logger.info("Reintentando generación...")
+                        import time
+                        time.sleep(0.5)
+                        # Limpiar imagen anterior
+                        if ruta_salida.exists():
+                            try:
+                                ruta_salida.unlink()
+                            except:
+                                pass
+            
+            except Exception as e:
+                logger.error(f"Error en intento {intento}: {e}", exc_info=True)
+                if intento >= max_reintentos:
+                    # En el último intento, guardar lo que tengamos
+                    try:
+                        if 'imagen' in locals() and imagen:
+                            imagen.save(ruta_salida, "PNG", dpi=(600, 600), optimize=False, compress_level=1)
+                            return True, f"Carnet generado (verificación OCR incompleta: {str(e)})", ruta_salida
+                    except:
+                        pass
+                    return False, f"Error tras {max_reintentos} intentos: {str(e)}", None
+        
+        # Si llegamos aquí, fallaron todos los intentos de verificación
+        # Pero guardamos el último intento de todas formas
+        mensaje = f"Carnet generado pero no se pudo verificar completamente con OCR tras {max_reintentos} intentos"
+        logger.warning(mensaje)
+        return True, mensaje, ruta_salida
     
     def generar_carnets_masivos(self):
         """Genera carnets para todos los empleados de la lista y los guarda en un ZIP"""
@@ -701,6 +991,8 @@ class CarnetController:
         exitosos = 0
         errores = 0
         total = len(empleados)
+        errores_ocr = 0  # Contador de errores de OCR
+        ocr_usado_exitosamente = False  # Flag para saber si OCR funcionó al menos una vez
         
         # Crear directorio temporal para almacenar carnets antes de comprimir
         directorio_temp = None
@@ -748,25 +1040,21 @@ class CarnetController:
                     nombre_empleado_temp = "empleado"
                 
                 faltantes = total - indice + 1
+                estado_ocr = "✓ Con verificación OCR" if self.usar_ocr else "⚠ Sin verificación OCR (no disponible)"
                 progress.actualizar_progreso(
                     indice - 1, 
                     total, 
-                    f"Generando carnet {indice} de {total}\nFaltan {faltantes} carnet(s) por generar\nEmpleado: {nombre_empleado_temp}"
+                    f"Generando carnet {indice} de {total}\nFaltan {faltantes} carnet(s) por generar\n{estado_ocr}\nEmpleado: {nombre_empleado_temp}"
                 )
                 QApplication.processEvents()
                 try:
-                    # Desempaquetar: id, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo
-                    if len(empleado) >= 8:
-                        id_db, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo = empleado
-                    elif len(empleado) >= 6:
-                        # Compatibilidad con formato anterior
-                        id_db, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo = empleado
-                        descripcion = ""
-                    else:
+                    # Desempaquetar usando función auxiliar
+                    emp = self._desempaquetar_empleado(empleado)
+                    if not emp:
                         errores += 1
                         continue
                     
-                    codigo_path = IMAGES_DIR / nombre_archivo
+                    codigo_path = IMAGES_DIR / emp['nombre_archivo']
                     if not codigo_path.exists():
                         errores += 1
                         continue
@@ -775,18 +1063,25 @@ class CarnetController:
                         # Usar renderizado HTML
                         variables = {}
                         
-                        # Datos del empleado
-                        nombre = nombre_empleado or "SIN NOMBRE"
+                        # Datos del empleado - EN GENERACIÓN MASIVA USAR SOLO DATOS DEL EMPLEADO, NO DE PANTALLA
+                        # IMPORTANTE: Usar directamente los datos del empleado actual, NO los de la pantalla
+                        nombre = emp['nombre_empleado'] or "SIN NOMBRE"
                         if "id_unico" in variables_template:
-                            variables["id_unico"] = id_unico
+                            variables["id_unico"] = emp['id_unico'] or ""
                         if "codigo_barras" in variables_template:
                             variables["codigo_barras"] = codigo_path
                         if "nombre" in variables_template:
-                            variables["nombre"] = variables_usuario.get("nombre", nombre) or nombre
+                            variables["nombre"] = nombre
+                        if "nombres" in variables_template:
+                            # FORZAR uso del nombre del empleado actual, no de pantalla
+                            variables["nombres"] = emp.get('nombres') or ""
+                        if "apellidos" in variables_template:
+                            # FORZAR uso del apellido del empleado actual, no de pantalla
+                            variables["apellidos"] = emp.get('apellidos') or ""
                         if "descripcion" in variables_template:
-                            variables["descripcion"] = variables_usuario.get("descripcion", descripcion) or descripcion
+                            variables["descripcion"] = emp.get('descripcion') or ""
                         
-                        # Logo y foto
+                        # Logo y foto - ESTOS SÍ vienen de pantalla (son globales)
                         if "logo" in variables_template:
                             logo_path = variables_usuario.get("logo")
                             if logo_path and isinstance(logo_path, Path) and logo_path.exists():
@@ -796,9 +1091,9 @@ class CarnetController:
                         if "foto" in variables_template:
                             variables["foto"] = Path("")
                         
-                        # Otras variables del usuario
+                        # Otras variables globales (empresa, web, cargo, etc.) - NO los datos del empleado
                         for var in variables_template:
-                            if var not in {"id_unico", "codigo_barras", "foto", "logo", "nombre"}:
+                            if var not in {"id_unico", "codigo_barras", "foto", "logo", "nombre", "nombres", "apellidos", "descripcion"}:
                                 if var not in variables:
                                     valor = variables_usuario.get(var, "")
                                     if isinstance(valor, Path):
@@ -811,48 +1106,123 @@ class CarnetController:
                             if var in variables_template and (not variables.get(var) or variables[var] == ""):
                                 variables[var] = default
                         
+                        # Logging para debug
+                        import logging
+                        logger_debug = logging.getLogger(__name__)
+                        logger_debug.info(f"=== Generando carnet para empleado {indice}/{total} ===")
+                        logger_debug.info(f"Emp datos: nombres={emp.get('nombres')}, apellidos={emp.get('apellidos')}, descripcion={emp.get('descripcion')}, id_unico={emp.get('id_unico')}")
+                        logger_debug.info(f"Variables antes de inyectar: nombres={variables.get('nombres')}, apellidos={variables.get('apellidos')}, descripcion={variables.get('descripcion')}")
+                        
                         # Inyectar variables en HTML
                         html_content = self.html_renderer._inyectar_variables(html_base, variables)
                         
-                        # Renderizar HTML a imagen con alta calidad (600 DPI)
-                        imagen = self.html_renderer.renderizar_html_a_imagen(
-                            html_content=html_content,
-                            ancho=html_template.ancho,
-                            alto=html_template.alto,
-                            dpi=600  # Alta calidad para impresión profesional
-                        )
-                        
-                        if not imagen:
-                            errores += 1
-                            continue
-                        
-                        # Guardar carnet en directorio temporal
+                        # Preparar nombre y ruta del carnet
                         from src.utils.file_utils import limpiar_nombre_archivo
-                        nombre_limpio = limpiar_nombre_archivo(nombre_empleado or "sin_nombre")
-                        nombre_archivo_carnet = f"carnet_{nombre_limpio}_{id_unico}.png"
+                        nombre_limpio = limpiar_nombre_archivo(emp['nombre_empleado'] or "sin_nombre")
+                        nombre_archivo_carnet = f"carnet_{nombre_limpio}_{emp['id_unico']}.png"
                         ruta_carnet = directorio_temp / nombre_archivo_carnet
                         
-                        # Guardar con máxima calidad PNG
-                        imagen.save(ruta_carnet, "PNG", dpi=(600, 600), optimize=False, compress_level=1)
-                        archivos_generados.append(ruta_carnet)
-                        exitosos += 1
+                        # Función para generar el carnet (captura html_content del scope actual)
+                        html_content_actual = html_content  # Capturar en variable local
+                        def generar_carnet_html():
+                            return self.html_renderer.renderizar_html_a_imagen(
+                                html_content=html_content_actual,
+                            ancho=html_template.ancho,
+                            alto=html_template.alto,
+                                dpi=600
+                            )
+                        
+                        # Callback para actualizar progreso
+                        def actualizar_progreso_ocr(mensaje):
+                            progress.actualizar_progreso(
+                                indice - 1,
+                                total,
+                                f"Generando carnet {indice} de {total}\n{mensaje}\nEmpleado: {emp.get('nombres', '')} {emp.get('apellidos', '')}"
+                            )
+                            QApplication.processEvents()
+                        
+                        # Generar con verificación OCR (solo si está disponible)
+                        exito, mensaje_ocr, ruta_final = self._generar_carnet_con_verificacion_ocr(
+                            generar_carnet_html,
+                            emp,
+                            ruta_carnet,
+                            verificar_ocr=self.usar_ocr,  # Solo verificar si OCR está disponible
+                            max_reintentos=2,  # Solo 2 reintentos en masivo para no hacerlo muy lento
+                            callback_progreso=actualizar_progreso_ocr if self.usar_ocr else None
+                        )
+                        
+                        logger_debug.info(f"Resultado: exito={exito}, mensaje={mensaje_ocr}")
+                        
+                        # Rastrear estado de OCR
+                        if self.usar_ocr:
+                            if "verificado" in mensaje_ocr.lower() or "verificación" in mensaje_ocr.lower():
+                                if "incompleta" not in mensaje_ocr.lower() and "error" not in mensaje_ocr.lower():
+                                    ocr_usado_exitosamente = True
+                                else:
+                                    errores_ocr += 1
+                            elif "error" in mensaje_ocr.lower() or "no disponible" in mensaje_ocr.lower():
+                                errores_ocr += 1
+                        
+                        if exito and ruta_final:
+                            archivos_generados.append(ruta_final)
+                            exitosos += 1
+                        else:
+                            errores += 1
                     else:
                         # Usar sistema PIL antiguo
-                        imagen = self.designer.renderizar_carnet(
+                        import logging
+                        logger_debug = logging.getLogger(__name__)
+                        logger_debug.info(f"=== Generando carnet PIL para empleado {indice}/{total} ===")
+                        logger_debug.info(f"Emp datos: nombres={emp.get('nombres')}, apellidos={emp.get('apellidos')}, descripcion={emp.get('descripcion')}, id_unico={emp.get('id_unico')}")
+                        
+                        from src.utils.file_utils import limpiar_nombre_archivo
+                        nombre_limpio = limpiar_nombre_archivo(emp['nombre_empleado'] or "sin_nombre")
+                        nombre_archivo_carnet = f"carnet_{nombre_limpio}_{emp['id_unico']}.png"
+                        ruta_carnet = directorio_temp / nombre_archivo_carnet
+                        
+                        # Función para generar el carnet
+                        def generar_carnet_pil():
+                            return self.designer.renderizar_carnet(
                             template=template,
-                            nombre_empleado=nombre_empleado or "SIN NOMBRE",
+                                nombre_empleado=emp['nombre_empleado'] or "SIN NOMBRE",
                             codigo_barras_path=str(codigo_path),
                             empresa=template.empresa_texto if template.mostrar_empresa else None,
                             web=template.web_texto if template.mostrar_web else None
                         )
                         
-                        from src.utils.file_utils import limpiar_nombre_archivo
-                        nombre_limpio = limpiar_nombre_archivo(nombre_empleado or "sin_nombre")
-                        nombre_archivo_carnet = f"carnet_{nombre_limpio}_{id_unico}.png"
-                        ruta_carnet = directorio_temp / nombre_archivo_carnet
+                        # Callback para actualizar progreso
+                        def actualizar_progreso_ocr(mensaje):
+                            progress.actualizar_progreso(
+                                indice - 1,
+                                total,
+                                f"Generando carnet {indice} de {total}\n{mensaje}\nEmpleado: {emp.get('nombres', '')} {emp.get('apellidos', '')}"
+                            )
+                            QApplication.processEvents()
                         
-                        if self.designer.guardar_carnet(imagen, ruta_carnet):
-                            archivos_generados.append(ruta_carnet)
+                        # Generar con verificación OCR
+                        exito, mensaje_ocr, ruta_final = self._generar_carnet_con_verificacion_ocr(
+                            generar_carnet_pil,
+                            emp,
+                            ruta_carnet,
+                            verificar_ocr=self.usar_ocr,
+                            max_reintentos=2,
+                            callback_progreso=actualizar_progreso_ocr if self.usar_ocr else None
+                        )
+                        
+                        logger_debug.info(f"Resultado PIL: exito={exito}, mensaje={mensaje_ocr}")
+                        
+                        # Rastrear estado de OCR
+                        if self.usar_ocr:
+                            if "verificado" in mensaje_ocr.lower() or "verificación" in mensaje_ocr.lower():
+                                if "incompleta" not in mensaje_ocr.lower() and "error" not in mensaje_ocr.lower():
+                                    ocr_usado_exitosamente = True
+                                else:
+                                    errores_ocr += 1
+                            elif "error" in mensaje_ocr.lower() or "no disponible" in mensaje_ocr.lower():
+                                errores_ocr += 1
+                        
+                        if exito and ruta_final:
+                            archivos_generados.append(ruta_final)
                             exitosos += 1
                         else:
                             errores += 1
@@ -860,7 +1230,13 @@ class CarnetController:
                     errores += 1
                     import logging
                     logger = logging.getLogger(__name__)
-                    logger.error(f"Error al generar carnet para {nombre_empleado}: {e}")
+                    # Intentar obtener nombre del empleado para el log
+                    try:
+                        emp_error = self._desempaquetar_empleado(empleado)
+                        nombre_error = emp_error['nombre_empleado'] if emp_error else "desconocido"
+                    except:
+                        nombre_error = "desconocido"
+                    logger.error(f"Error al generar carnet para {nombre_error}: {e}")
             
             # Crear archivo ZIP con todos los carnets generados
             if archivos_generados:
@@ -901,8 +1277,20 @@ class CarnetController:
         progress.close()
         
         mensaje = f"Generación completada:\n{exitosos} carnet(s) generado(s) y guardado(s) en:\n{ruta_zip_path}"
+        
+        # Mensaje de OCR basado en el estado real
+        if self.usar_ocr:
+            if ocr_usado_exitosamente and errores_ocr == 0:
+                mensaje += f"\n\n✓ Verificación OCR: Habilitada (todos los carnets fueron verificados)"
+            elif ocr_usado_exitosamente and errores_ocr > 0:
+                mensaje += f"\n\n⚠ Verificación OCR: Parcial (algunos carnets no pudieron ser verificados: {errores_ocr} error(es))"
+            else:
+                mensaje += f"\n\n⚠ Verificación OCR: No disponible (Tesseract no está instalado o no está en PATH)"
+        else:
+            mensaje += f"\n\n⚠ Verificación OCR: No disponible (Tesseract no está instalado)"
+        
         if errores > 0:
-            mensaje += f"\n\n{errores} error(es)"
+            mensaje += f"\n\n{errores} error(es) durante la generación"
         
         QMessageBox.information(self.employees_panel, "Resultado", mensaje)
     
@@ -949,14 +1337,8 @@ class CarnetController:
         QApplication.processEvents()
         
         # Desempaquetar datos del empleado
-        if len(empleado) >= 8:
-            id_db, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo = empleado
-        elif len(empleado) >= 7:
-            id_db, codigo_barras, id_unico, nombre_empleado, descripcion, formato, nombre_archivo = empleado
-        elif len(empleado) >= 6:
-            id_db, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo = empleado
-            descripcion = ""
-        else:
+        emp = self._desempaquetar_empleado(empleado)
+        if not emp:
             progress.close()
             QMessageBox.warning(
                 self.employees_panel,
@@ -965,13 +1347,13 @@ class CarnetController:
             )
             return
         
-        codigo_path = IMAGES_DIR / nombre_archivo
+        codigo_path = IMAGES_DIR / emp['nombre_archivo']
         if not codigo_path.exists():
             progress.close()
             QMessageBox.warning(
                 self.employees_panel,
                 "Error",
-                f"No se encontró la imagen del código de barras: {nombre_archivo}"
+                f"No se encontró la imagen del código de barras: {emp['nombre_archivo']}"
             )
             return
         
@@ -993,15 +1375,19 @@ class CarnetController:
                 variables_template = html_template.detectar_variables()
                 variables = {}
                 
-                nombre = nombre_empleado or "SIN NOMBRE"
+                nombre = emp['nombre_empleado'] or "SIN NOMBRE"
                 if "id_unico" in variables_template:
-                    variables["id_unico"] = id_unico
+                    variables["id_unico"] = emp['id_unico']
                 if "codigo_barras" in variables_template:
                     variables["codigo_barras"] = codigo_path
                 if "nombre" in variables_template:
                     variables["nombre"] = variables_usuario.get("nombre", nombre) or nombre
+                if "nombres" in variables_template:
+                    variables["nombres"] = variables_usuario.get("nombres", emp['nombres']) or emp['nombres']
+                if "apellidos" in variables_template:
+                    variables["apellidos"] = variables_usuario.get("apellidos", emp['apellidos']) or emp['apellidos']
                 if "descripcion" in variables_template:
-                    variables["descripcion"] = variables_usuario.get("descripcion", descripcion) or descripcion
+                    variables["descripcion"] = variables_usuario.get("descripcion", emp['descripcion']) or emp['descripcion']
                 
                 # Logo y foto
                 if "logo" in variables_template:
@@ -1054,7 +1440,7 @@ class CarnetController:
                 
                 imagen = self.designer.renderizar_carnet(
                     template=template,
-                    nombre_empleado=nombre_empleado or "SIN NOMBRE",
+                    nombre_empleado=emp['nombre_empleado'] or "SIN NOMBRE",
                     codigo_barras_path=str(codigo_path),
                     empresa=template.empresa_texto if template.mostrar_empresa else None,
                     web=template.web_texto if template.mostrar_web else None
@@ -1162,6 +1548,8 @@ class CarnetController:
         exitosos = 0
         errores = 0
         total = len(empleados)
+        errores_ocr = 0  # Contador de errores de OCR
+        ocr_usado_exitosamente = False  # Flag para saber si OCR funcionó al menos una vez
         
         # Crear directorio temporal para almacenar PDFs antes de comprimir
         directorio_temp = None
@@ -1211,39 +1599,42 @@ class CarnetController:
                 QApplication.processEvents()
                 
                 try:
-                    # Desempaquetar datos
-                    if len(empleado) >= 8:
-                        id_db, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo = empleado
-                    elif len(empleado) >= 6:
-                        id_db, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo = empleado
-                        descripcion = ""
-                    else:
+                    # Desempaquetar datos usando función auxiliar
+                    emp = self._desempaquetar_empleado(empleado)
+                    if not emp:
                         errores += 1
                         continue
                     
-                    codigo_path = IMAGES_DIR / nombre_archivo
+                    codigo_path = IMAGES_DIR / emp['nombre_archivo']
                     if not codigo_path.exists():
                         errores += 1
                         continue
                     
                     # Generar nombre del PDF en directorio temporal
                     from src.utils.file_utils import limpiar_nombre_archivo
-                    nombre_limpio = limpiar_nombre_archivo(nombre_empleado or "sin_nombre")
-                    nombre_pdf = f"carnet_{nombre_limpio}_{id_unico}.pdf"
+                    nombre_limpio = limpiar_nombre_archivo(emp['nombre_empleado'] or "sin_nombre")
+                    nombre_pdf = f"carnet_{nombre_limpio}_{emp['id_unico']}.pdf"
                     ruta_pdf = directorio_temp / nombre_pdf
                     
                     if usar_html:
                         # Preparar variables
+                        # IMPORTANTE: Usar directamente los datos del empleado actual, NO los de la pantalla
                         variables = {}
-                        nombre = nombre_empleado or "SIN NOMBRE"
+                        nombre = emp['nombre_empleado'] or "SIN NOMBRE"
                         if "id_unico" in variables_template:
-                            variables["id_unico"] = id_unico
+                            variables["id_unico"] = emp['id_unico'] or ""
                         if "codigo_barras" in variables_template:
                             variables["codigo_barras"] = codigo_path
                         if "nombre" in variables_template:
-                            variables["nombre"] = variables_usuario.get("nombre", nombre) or nombre
+                            variables["nombre"] = nombre
+                        if "nombres" in variables_template:
+                            # FORZAR uso del nombre del empleado actual, no de pantalla
+                            variables["nombres"] = emp.get('nombres') or ""
+                        if "apellidos" in variables_template:
+                            # FORZAR uso del apellido del empleado actual, no de pantalla
+                            variables["apellidos"] = emp.get('apellidos') or ""
                         if "descripcion" in variables_template:
-                            variables["descripcion"] = variables_usuario.get("descripcion", descripcion) or descripcion
+                            variables["descripcion"] = emp.get('descripcion') or ""
                         
                         # Logo y foto
                         if "logo" in variables_template:
@@ -1255,9 +1646,9 @@ class CarnetController:
                         if "foto" in variables_template:
                             variables["foto"] = Path("")
                         
-                        # Otras variables
+                        # Otras variables globales
                         for var in variables_template:
-                            if var not in {"id_unico", "codigo_barras", "foto", "logo", "nombre"}:
+                            if var not in {"id_unico", "codigo_barras", "foto", "logo", "nombre", "nombres", "apellidos", "descripcion"}:
                                 if var not in variables:
                                     valor = variables_usuario.get(var, "")
                                     if isinstance(valor, Path):
@@ -1272,50 +1663,139 @@ class CarnetController:
                         
                         # Inyectar variables y renderizar
                         html_content = self.html_renderer._inyectar_variables(html_base, variables)
-                        imagen = self.html_renderer.renderizar_html_a_imagen(
+                        
+                        # Función para generar el carnet
+                        def generar_carnet_html():
+                            return self.html_renderer.renderizar_html_a_imagen(
                             html_content=html_content,
                             ancho=html_template.ancho,
                             alto=html_template.alto,
-                            dpi=1200  # Super mega calidad para PDF
-                        )
-                    else:
-                        # Usar sistema PIL
-                        imagen = self.designer.renderizar_carnet(
-                            template=template,
-                            nombre_empleado=nombre_empleado or "SIN NOMBRE",
-                            codigo_barras_path=str(codigo_path),
-                            empresa=template.empresa_texto if template.mostrar_empresa else None,
-                            web=template.web_texto if template.mostrar_web else None
+                                dpi=1200
+                            )
+                        
+                        # Generar PNG temporal para verificación OCR
+                        ruta_png_temp = ruta_pdf.with_suffix('.png')
+                        exito, mensaje_ocr, ruta_png_final = self._generar_carnet_con_verificacion_ocr(
+                            generar_carnet_html,
+                            emp,
+                            ruta_png_temp,
+                            verificar_ocr=self.usar_ocr,
+                            max_reintentos=2
                         )
                         
-                        # Escalar para alta calidad
-                        factor_calidad = 1200 / 300.0
-                        nuevo_ancho = int(imagen.size[0] * factor_calidad)
-                        nuevo_alto = int(imagen.size[1] * factor_calidad)
-                        imagen = imagen.resize((nuevo_ancho, nuevo_alto), Image.Resampling.LANCZOS)
+                        # Rastrear estado de OCR
+                        if self.usar_ocr:
+                            if "verificado" in mensaje_ocr.lower() or "verificación" in mensaje_ocr.lower():
+                                if "incompleta" not in mensaje_ocr.lower() and "error" not in mensaje_ocr.lower():
+                                    ocr_usado_exitosamente = True
+                                else:
+                                    errores_ocr += 1
+                            elif "error" in mensaje_ocr.lower() or "no disponible" in mensaje_ocr.lower():
+                                errores_ocr += 1
+                        
+                        if not exito or not ruta_png_final:
+                            errores += 1
+                            continue
+                        
+                        # Convertir PNG verificado a PDF
+                        try:
+                            imagen = Image.open(ruta_png_final)
+                            if imagen.mode != 'RGB':
+                                imagen = imagen.convert('RGB')
+                            imagen.save(
+                                ruta_pdf,
+                                "PDF",
+                                resolution=1200.0,
+                                quality=100
+                            )
+                            archivos_generados.append(ruta_pdf)
+                            exitosos += 1
+                            
+                            # Eliminar PNG temporal
+                            try:
+                                ruta_png_temp.unlink()
+                            except:
+                                pass
+                        except Exception as e_pdf:
+                            import logging
+                            logging.getLogger(__name__).error(f"Error al convertir PNG a PDF: {e_pdf}")
+                            errores += 1
+                    else:
+                        # Función para generar carnet con sistema PIL
+                        def generar_carnet_pil():
+                            img = self.designer.renderizar_carnet(
+                                template=template,
+                                nombre_empleado=emp['nombre_empleado'] or "SIN NOMBRE",
+                                codigo_barras_path=str(codigo_path),
+                                empresa=template.empresa_texto if template.mostrar_empresa else None,
+                                web=template.web_texto if template.mostrar_web else None
+                            )
+                            # Escalar para alta calidad
+                            if img:
+                                factor_calidad = 1200 / 300.0
+                                nuevo_ancho = int(img.size[0] * factor_calidad)
+                                nuevo_alto = int(img.size[1] * factor_calidad)
+                                img = img.resize((nuevo_ancho, nuevo_alto), Image.Resampling.LANCZOS)
+                            return img
                     
-                    if not imagen:
-                        errores += 1
-                        continue
+                        # Generar PNG temporal para verificación OCR
+                        ruta_png_temp = ruta_pdf.with_suffix('.png')
+                        exito, mensaje_ocr, ruta_png_final = self._generar_carnet_con_verificacion_ocr(
+                            generar_carnet_pil,
+                            emp,
+                            ruta_png_temp,
+                            verificar_ocr=self.usar_ocr,
+                            max_reintentos=2
+                        )
+                        
+                        # Rastrear estado de OCR
+                        if self.usar_ocr:
+                            if "verificado" in mensaje_ocr.lower() or "verificación" in mensaje_ocr.lower():
+                                if "incompleta" not in mensaje_ocr.lower() and "error" not in mensaje_ocr.lower():
+                                    ocr_usado_exitosamente = True
+                                else:
+                                    errores_ocr += 1
+                            elif "error" in mensaje_ocr.lower() or "no disponible" in mensaje_ocr.lower():
+                                errores_ocr += 1
+                        
+                        if not exito or not ruta_png_final:
+                            errores += 1
+                            continue
                     
-                    # Convertir a RGB si es necesario
-                    if imagen.mode != 'RGB':
-                        imagen = imagen.convert('RGB')
-                    
-                    # Guardar PDF con máxima calidad
-                    imagen.save(
-                        ruta_pdf,
-                        "PDF",
-                        resolution=1200.0,  # 1200 DPI para super mega calidad
-                        quality=100
-                    )
-                    archivos_generados.append(ruta_pdf)
-                    exitosos += 1
+                        # Convertir PNG verificado a PDF
+                        try:
+                            imagen = Image.open(ruta_png_final)
+                            if imagen.mode != 'RGB':
+                                imagen = imagen.convert('RGB')
+                            imagen.save(
+                                ruta_pdf,
+                                "PDF",
+                                resolution=1200.0,
+                                quality=100
+                            )
+                            archivos_generados.append(ruta_pdf)
+                            exitosos += 1
+                            
+                            # Eliminar PNG temporal
+                            try:
+                                ruta_png_temp.unlink()
+                            except:
+                                pass
+                        except Exception as e_pdf:
+                            import logging
+                            logging.getLogger(__name__).error(f"Error al convertir PNG a PDF: {e_pdf}")
+                            errores += 1
                 except Exception as e:
                     errores += 1
                     import logging
                     logger = logging.getLogger(__name__)
-                    logger.error(f"Error al generar PDF para {nombre_empleado}: {e}")
+                    # Intentar obtener nombre del empleado para el log
+                    try:
+                        emp_error = self._desempaquetar_empleado(empleado)
+                        nombre_error = emp_error['nombre_empleado'] if emp_error else "desconocido"
+                    except:
+                        nombre_error = "desconocido"
+                    logger.error(f"Error al generar PDF para {nombre_error}: {e}")
             
             # Crear archivo ZIP con todos los PDFs generados
             if archivos_generados:
@@ -1357,8 +1837,20 @@ class CarnetController:
         progress.close()
         
         mensaje = f"Generación completada:\n{exitosos} PDF(s) generado(s) y guardado(s) en:\n{ruta_zip_path}"
+        
+        # Mensaje de OCR basado en el estado real
+        if self.usar_ocr:
+            if ocr_usado_exitosamente and errores_ocr == 0:
+                mensaje += f"\n\n✓ Verificación OCR: Habilitada (todos los PDFs fueron verificados)"
+            elif ocr_usado_exitosamente and errores_ocr > 0:
+                mensaje += f"\n\n⚠ Verificación OCR: Parcial (algunos PDFs no pudieron ser verificados: {errores_ocr} error(es))"
+            else:
+                mensaje += f"\n\n⚠ Verificación OCR: No disponible (Tesseract no está instalado o no está en PATH)"
+        else:
+            mensaje += f"\n\n⚠ Verificación OCR: No disponible (Tesseract no está instalado)"
+        
         if errores > 0:
-            mensaje += f"\n\n{errores} error(es)"
+            mensaje += f"\n\n{errores} error(es) durante la generación"
         
         QMessageBox.information(self.employees_panel, "Resultado", mensaje)
 

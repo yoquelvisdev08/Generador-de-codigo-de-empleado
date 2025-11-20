@@ -162,11 +162,17 @@ class ListPanel(QWidget):
         
         Args:
             codigos: Lista de tuplas con los datos de los códigos
+            Formato nuevo: (id, codigo_barras, id_unico, fecha_creacion, nombres, apellidos, descripcion, formato, nombre_archivo)
         """
         self.tabla_codigos.setRowCount(len(codigos))
         
         for fila, codigo in enumerate(codigos):
-            if len(codigo) == 8:
+            if len(codigo) == 9:
+                # Nuevo formato con nombres y apellidos separados
+                id_db, codigo_barras, id_unico, fecha, nombres, apellidos, descripcion, formato, nombre_archivo = codigo
+                nombre_empleado = f"{nombres or ''} {apellidos or ''}".strip()
+            elif len(codigo) == 8:
+                # Formato antiguo con nombre_empleado
                 id_db, codigo_barras, id_unico, fecha, nombre_empleado, descripcion, formato, nombre_archivo = codigo
             else:
                 # Compatibilidad con formato anterior (sin nombre_archivo)

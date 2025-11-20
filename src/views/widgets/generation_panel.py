@@ -61,12 +61,19 @@ class GenerationPanel(QWidget):
         self.combo_formato.addItems(self.formatos_disponibles)
         layout_grupo.addWidget(self.combo_formato)
         
-        label_nombre = QLabel("Nombre del Empleado:")
-        layout_grupo.addWidget(label_nombre)
+        label_nombres = QLabel("Nombres del Empleado:")
+        layout_grupo.addWidget(label_nombres)
         
-        self.campo_nombre_empleado = QLineEdit()
-        self.campo_nombre_empleado.setPlaceholderText("Ejemplo: Juan Pérez")
-        layout_grupo.addWidget(self.campo_nombre_empleado)
+        self.campo_nombres_empleado = QLineEdit()
+        self.campo_nombres_empleado.setPlaceholderText("Ejemplo: Juan")
+        layout_grupo.addWidget(self.campo_nombres_empleado)
+        
+        label_apellidos = QLabel("Apellidos del Empleado:")
+        layout_grupo.addWidget(label_apellidos)
+        
+        self.campo_apellidos_empleado = QLineEdit()
+        self.campo_apellidos_empleado.setPlaceholderText("Ejemplo: Pérez")
+        layout_grupo.addWidget(self.campo_apellidos_empleado)
         
         # Separador visual (opcional, para mejor organización)
         separador1 = QLabel("─────────────────────────────────────")
@@ -247,7 +254,8 @@ class GenerationPanel(QWidget):
             tipo_caracteres = "solo_letras"
         
         return {
-            'nombre_empleado': self.campo_nombre_empleado.text().strip(),
+            'nombres': self.campo_nombres_empleado.text().strip(),
+            'apellidos': self.campo_apellidos_empleado.text().strip(),
             'formato': self.combo_formato.currentText(),
             'descripcion': self.campo_descripcion.text().strip(),  # Código de empleado (obligatorio)
             'tipo_caracteres': tipo_caracteres,
@@ -264,17 +272,20 @@ class GenerationPanel(QWidget):
             Diccionario con las opciones
         """
         datos = self.obtener_datos()
+        # Crear nombre completo para generación de ID
+        nombre_completo = f"{datos['nombres']} {datos['apellidos']}".strip()
         return {
             'tipo_caracteres': datos['tipo_caracteres'],
             'cantidad_caracteres': datos['cantidad_caracteres'],
             'incluir_nombre': datos['incluir_nombre'],
-            'nombre_empleado': datos['nombre_empleado'],
+            'nombre_empleado': nombre_completo,  # Mantener este nombre por compatibilidad con el generador de ID
             'texto_personalizado': datos['texto_personalizado']
         }
     
     def limpiar_formulario(self):
         """Limpia los campos del formulario"""
-        self.campo_nombre_empleado.clear()
+        self.campo_nombres_empleado.clear()
+        self.campo_apellidos_empleado.clear()
         self.campo_descripcion.clear()
         # Restaurar estilo del campo de código de empleado
         self.campo_descripcion.setStyleSheet("border: 2px solid #dc3545;")
@@ -308,7 +319,8 @@ class GenerationPanel(QWidget):
         Args:
             callback: Función a llamar cuando cambien las opciones
         """
-        self.campo_nombre_empleado.textChanged.connect(callback)
+        self.campo_nombres_empleado.textChanged.connect(callback)
+        self.campo_apellidos_empleado.textChanged.connect(callback)
         self.radio_alfanumerico.toggled.connect(callback)
         self.radio_numerico.toggled.connect(callback)
         self.radio_solo_letras.toggled.connect(callback)

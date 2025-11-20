@@ -37,7 +37,8 @@ class BarcodeService:
     
     def generar_codigo_barras(self, datos: str, formato: str = "Code128",
                               id_unico: Optional[str] = None,
-                              nombre_empleado: Optional[str] = None) -> Tuple[str, str, Path]:
+                              nombres: Optional[str] = None,
+                              apellidos: Optional[str] = None) -> Tuple[str, str, Path]:
         """
         Genera un código de barras y lo guarda como imagen
         
@@ -45,7 +46,8 @@ class BarcodeService:
             datos: Datos a codificar en el código de barras
             formato: Formato del código (Code128, EAN13, EAN8, Code39)
             id_unico: ID único del código (opcional)
-            nombre_empleado: Nombre del empleado (opcional)
+            nombres: Nombres del empleado (opcional)
+            apellidos: Apellidos del empleado (opcional)
             
         Returns:
             Tupla con (datos, id_unico, ruta_imagen)
@@ -62,8 +64,11 @@ class BarcodeService:
         try:
             codigo = clase_barcode(datos, writer=ImageWriter())
             
+            # Crear nombre completo para el archivo
+            nombre_completo = f"{nombres or ''} {apellidos or ''}".strip() or "sin_nombre"
+            
             ruta_imagen = obtener_ruta_imagen(
-                nombre_empleado or "sin_nombre",
+                nombre_completo,
                 datos,
                 self.directorio_imagenes
             )

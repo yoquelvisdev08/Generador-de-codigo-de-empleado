@@ -43,8 +43,8 @@
         }
         
         .logo-container img {
-            max-width: 480px;
-            max-height: 480px;
+            max-width: 320px;
+            max-height: 320px;
             width: auto;
             height: auto;
             object-fit: contain;
@@ -104,7 +104,7 @@
         .barcode-section img {
             max-width: 100%;
             height: auto;
-            max-height: 220px;
+            max-height: 300px;
             margin-bottom: 10px;
         }
         
@@ -129,39 +129,42 @@
             }
         }
         
-        function separarNombreApellido() {
-            var nombreCompleto = '{{nombre}}' || '';
+        function obtenerPrimerNombre() {
+            var nombres = '{{nombres}}' || '';
+            if (!nombres) return '';
+            
+            // Obtener solo la primera palabra de los nombres
+            var palabras = nombres.trim().split(/\s+/);
+            return palabras[0] || '';
+        }
+        
+        function obtenerPrimerApellido() {
+            var apellidos = '{{apellidos}}' || '';
+            if (!apellidos) return '';
+            
+            // Obtener solo la primera palabra de los apellidos
+            var palabras = apellidos.trim().split(/\s+/);
+            return palabras[0] || '';
+        }
+        
+        function mostrarNombresApellidos() {
             var nombreElement = document.getElementById('nombre-line');
             var apellidoElement = document.getElementById('apellido-line');
             
-            if (!nombreCompleto) {
-                if (nombreElement) nombreElement.textContent = '';
-                if (apellidoElement) apellidoElement.textContent = '';
-                return;
+            if (nombreElement) {
+                nombreElement.textContent = obtenerPrimerNombre();
             }
             
-            // Dividir en palabras
-            var palabras = nombreCompleto.trim().split(/\s+/);
-            
-            if (palabras.length === 1) {
-                // Solo una palabra: mostrarla en la primera línea
-                if (nombreElement) nombreElement.textContent = palabras[0];
-                if (apellidoElement) apellidoElement.textContent = '';
-            } else if (palabras.length >= 2) {
-                // Dos o más palabras: primer nombre + último apellido
-                var primerNombre = palabras[0];
-                var ultimoApellido = palabras[palabras.length - 1];
-                
-                if (nombreElement) nombreElement.textContent = primerNombre;
-                if (apellidoElement) apellidoElement.textContent = ultimoApellido;
+            if (apellidoElement) {
+                apellidoElement.textContent = obtenerPrimerApellido();
             }
         }
         
         // Ejecutar cuando el DOM esté listo
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', separarNombreApellido);
+            document.addEventListener('DOMContentLoaded', mostrarNombresApellidos);
         } else {
-            separarNombreApellido();
+            mostrarNombresApellidos();
         }
     </script>
 </head>

@@ -42,19 +42,20 @@ class CarnetEmployeesPanel(QWidget):
         
         # Tabla de empleados con scroll
         self.tabla_empleados = QTableWidget()
-        self.tabla_empleados.setColumnCount(7)
+        self.tabla_empleados.setColumnCount(8)
         self.tabla_empleados.setHorizontalHeaderLabels([
-            "ID", "Nombre del Empleado", "Código de Empleado", "ID Único", "Código de Barras", "Formato", "Archivo"
+            "ID", "Nombres", "Apellidos", "Código de Empleado", "ID Único", "Código de Barras", "Formato", "Archivo"
         ])
         # Hacer la tabla responsive
         header = self.tabla_empleados.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)  # ID: tamaño contenido
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Nombre: estirable
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)  # Código de Empleado: estirable
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)  # ID Único: estirable
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)  # Código de Barras: estirable
-        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)  # Formato: tamaño contenido
-        header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)  # Archivo: tamaño contenido
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Nombres: estirable
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)  # Apellidos: estirable
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)  # Código de Empleado: estirable
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)  # ID Único: estirable
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)  # Código de Barras: estirable
+        header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)  # Formato: tamaño contenido
+        header.setSectionResizeMode(7, QHeaderView.ResizeMode.ResizeToContents)  # Archivo: tamaño contenido
         self.tabla_empleados.setSelectionBehavior(
             QTableWidget.SelectionBehavior.SelectRows
         )
@@ -108,13 +109,34 @@ class CarnetEmployeesPanel(QWidget):
         
         Args:
             empleados: Lista de tuplas con datos de empleados de la BD
-                     (id, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo)
+                     (id, codigo_barras, id_unico, fecha_creacion, nombres, apellidos, descripcion, formato, nombre_archivo)
         """
         self.tabla_empleados.setRowCount(len(empleados))
         
         for fila, empleado in enumerate(empleados):
-            # La BD devuelve: (id, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo)
-            if len(empleado) >= 8:
+            # La BD devuelve: (id, codigo_barras, id_unico, fecha_creacion, nombres, apellidos, descripcion, formato, nombre_archivo)
+            if len(empleado) >= 9:
+                id_db = empleado[0]
+                codigo_barras = empleado[1] or ""
+                id_unico = empleado[2] or ""
+                fecha_creacion = empleado[3] or ""
+                nombres = empleado[4] or ""
+                apellidos = empleado[5] or ""
+                descripcion = empleado[6] or ""
+                formato = empleado[7] or ""
+                nombre_archivo = empleado[8] or ""
+                
+                # Mapear a las columnas de la tabla: ID, Nombres, Apellidos, Código de Empleado, ID Único, Código de Barras, Formato, Archivo
+                self.tabla_empleados.setItem(fila, 0, QTableWidgetItem(str(id_db)))
+                self.tabla_empleados.setItem(fila, 1, QTableWidgetItem(nombres))
+                self.tabla_empleados.setItem(fila, 2, QTableWidgetItem(apellidos))
+                self.tabla_empleados.setItem(fila, 3, QTableWidgetItem(descripcion))  # Código de Empleado
+                self.tabla_empleados.setItem(fila, 4, QTableWidgetItem(id_unico))
+                self.tabla_empleados.setItem(fila, 5, QTableWidgetItem(codigo_barras))
+                self.tabla_empleados.setItem(fila, 6, QTableWidgetItem(formato))
+                self.tabla_empleados.setItem(fila, 7, QTableWidgetItem(nombre_archivo))
+            elif len(empleado) >= 8:
+                # Formato antiguo con nombre_empleado (retrocompatibilidad)
                 id_db = empleado[0]
                 codigo_barras = empleado[1] or ""
                 id_unico = empleado[2] or ""
@@ -124,46 +146,45 @@ class CarnetEmployeesPanel(QWidget):
                 formato = empleado[6] or ""
                 nombre_archivo = empleado[7] or ""
                 
-                # Mapear a las columnas de la tabla: ID, Nombre, Código de Empleado, ID Único, Código de Barras, Formato, Archivo
-                self.tabla_empleados.setItem(fila, 0, QTableWidgetItem(str(id_db)))
-                self.tabla_empleados.setItem(fila, 1, QTableWidgetItem(nombre_empleado))
-                self.tabla_empleados.setItem(fila, 2, QTableWidgetItem(descripcion))  # Código de Empleado
-                self.tabla_empleados.setItem(fila, 3, QTableWidgetItem(id_unico))
-                self.tabla_empleados.setItem(fila, 4, QTableWidgetItem(codigo_barras))
-                self.tabla_empleados.setItem(fila, 5, QTableWidgetItem(formato))
-                self.tabla_empleados.setItem(fila, 6, QTableWidgetItem(nombre_archivo))
-            elif len(empleado) >= 6:
-                # Compatibilidad con formato anterior
-                id_db, codigo_barras, id_unico, nombre_empleado, formato, nombre_archivo = empleado[:6]
+                # Dividir nombre_empleado en nombres y apellidos
+                partes = nombre_empleado.strip().split()
+                if len(partes) <= 1:
+                    nombres = nombre_empleado
+                    apellidos = ""
+                else:
+                    nombres = partes[0]
+                    apellidos = " ".join(partes[1:])
                 
                 self.tabla_empleados.setItem(fila, 0, QTableWidgetItem(str(id_db)))
-                self.tabla_empleados.setItem(fila, 1, QTableWidgetItem(nombre_empleado or ""))
-                self.tabla_empleados.setItem(fila, 2, QTableWidgetItem(""))  # Código de Empleado (vacío si no está disponible)
-                self.tabla_empleados.setItem(fila, 3, QTableWidgetItem(id_unico or ""))
-                self.tabla_empleados.setItem(fila, 4, QTableWidgetItem(codigo_barras or ""))
-                self.tabla_empleados.setItem(fila, 5, QTableWidgetItem(formato or ""))
-                self.tabla_empleados.setItem(fila, 6, QTableWidgetItem(nombre_archivo or ""))
+                self.tabla_empleados.setItem(fila, 1, QTableWidgetItem(nombres))
+                self.tabla_empleados.setItem(fila, 2, QTableWidgetItem(apellidos))
+                self.tabla_empleados.setItem(fila, 3, QTableWidgetItem(descripcion))
+                self.tabla_empleados.setItem(fila, 4, QTableWidgetItem(id_unico))
+                self.tabla_empleados.setItem(fila, 5, QTableWidgetItem(codigo_barras))
+                self.tabla_empleados.setItem(fila, 6, QTableWidgetItem(formato))
+                self.tabla_empleados.setItem(fila, 7, QTableWidgetItem(nombre_archivo))
     
     def obtener_empleado_seleccionado(self):
         """
         Obtiene el empleado seleccionado
         
         Returns:
-            Tupla con (id, codigo_barras, id_unico, nombre_empleado, descripcion, formato, nombre_archivo) o None
+            Tupla con (id, codigo_barras, id_unico, nombres, apellidos, descripcion, formato, nombre_archivo) o None
         """
         fila = self.tabla_empleados.currentRow()
         if fila < 0:
             return None
         
         id_db = int(self.tabla_empleados.item(fila, 0).text())
-        nombre_empleado = self.tabla_empleados.item(fila, 1).text()
-        codigo_empleado = self.tabla_empleados.item(fila, 2).text()  # Código de Empleado (descripcion)
-        id_unico = self.tabla_empleados.item(fila, 3).text()
-        codigo_barras = self.tabla_empleados.item(fila, 4).text()
-        formato = self.tabla_empleados.item(fila, 5).text()
-        nombre_archivo = self.tabla_empleados.item(fila, 6).text()
+        nombres = self.tabla_empleados.item(fila, 1).text()
+        apellidos = self.tabla_empleados.item(fila, 2).text()
+        codigo_empleado = self.tabla_empleados.item(fila, 3).text()  # Código de Empleado (descripcion)
+        id_unico = self.tabla_empleados.item(fila, 4).text()
+        codigo_barras = self.tabla_empleados.item(fila, 5).text()
+        formato = self.tabla_empleados.item(fila, 6).text()
+        nombre_archivo = self.tabla_empleados.item(fila, 7).text()
         
-        return id_db, codigo_barras, id_unico, nombre_empleado, codigo_empleado, formato, nombre_archivo
+        return id_db, codigo_barras, id_unico, nombres, apellidos, codigo_empleado, formato, nombre_archivo
     
     def obtener_empleados_seleccionados(self):
         """
@@ -171,7 +192,7 @@ class CarnetEmployeesPanel(QWidget):
         
         Returns:
             Lista de tuplas con datos de empleados en formato:
-            (id, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo)
+            (id, codigo_barras, id_unico, fecha_creacion, nombres, apellidos, descripcion, formato, nombre_archivo)
         """
         filas_seleccionadas = self.tabla_empleados.selectedIndexes()
         if not filas_seleccionadas:
@@ -184,16 +205,17 @@ class CarnetEmployeesPanel(QWidget):
         resultados = []
         for fila in filas_unicas:
             id_db = int(self.tabla_empleados.item(fila, 0).text())
-            nombre_empleado = self.tabla_empleados.item(fila, 1).text()
-            codigo_empleado = self.tabla_empleados.item(fila, 2).text()  # Código de Empleado (descripcion)
-            id_unico = self.tabla_empleados.item(fila, 3).text()
-            codigo_barras = self.tabla_empleados.item(fila, 4).text()
-            formato = self.tabla_empleados.item(fila, 5).text()
-            nombre_archivo = self.tabla_empleados.item(fila, 6).text()
+            nombres = self.tabla_empleados.item(fila, 1).text()
+            apellidos = self.tabla_empleados.item(fila, 2).text()
+            codigo_empleado = self.tabla_empleados.item(fila, 3).text()  # Código de Empleado (descripcion)
+            id_unico = self.tabla_empleados.item(fila, 4).text()
+            codigo_barras = self.tabla_empleados.item(fila, 5).text()
+            formato = self.tabla_empleados.item(fila, 6).text()
+            nombre_archivo = self.tabla_empleados.item(fila, 7).text()
             
-            # Formato completo: (id, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo)
+            # Formato completo: (id, codigo_barras, id_unico, fecha_creacion, nombres, apellidos, descripcion, formato, nombre_archivo)
             # fecha_creacion no está en la tabla, usar cadena vacía
-            resultados.append((id_db, codigo_barras, id_unico, "", nombre_empleado, codigo_empleado, formato, nombre_archivo))
+            resultados.append((id_db, codigo_barras, id_unico, "", nombres, apellidos, codigo_empleado, formato, nombre_archivo))
         
         return resultados
     
@@ -203,23 +225,24 @@ class CarnetEmployeesPanel(QWidget):
         
         Returns:
             Lista de tuplas con datos de empleados en formato:
-            (id, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo)
+            (id, codigo_barras, id_unico, fecha_creacion, nombres, apellidos, descripcion, formato, nombre_archivo)
         """
         resultados = []
         total_filas = self.tabla_empleados.rowCount()
         
         for fila in range(total_filas):
             id_db = int(self.tabla_empleados.item(fila, 0).text())
-            nombre_empleado = self.tabla_empleados.item(fila, 1).text()
-            codigo_empleado = self.tabla_empleados.item(fila, 2).text()  # Código de Empleado (descripcion)
-            id_unico = self.tabla_empleados.item(fila, 3).text()
-            codigo_barras = self.tabla_empleados.item(fila, 4).text()
-            formato = self.tabla_empleados.item(fila, 5).text()
-            nombre_archivo = self.tabla_empleados.item(fila, 6).text()
+            nombres = self.tabla_empleados.item(fila, 1).text()
+            apellidos = self.tabla_empleados.item(fila, 2).text()
+            codigo_empleado = self.tabla_empleados.item(fila, 3).text()  # Código de Empleado (descripcion)
+            id_unico = self.tabla_empleados.item(fila, 4).text()
+            codigo_barras = self.tabla_empleados.item(fila, 5).text()
+            formato = self.tabla_empleados.item(fila, 6).text()
+            nombre_archivo = self.tabla_empleados.item(fila, 7).text()
             
-            # Formato completo: (id, codigo_barras, id_unico, fecha_creacion, nombre_empleado, descripcion, formato, nombre_archivo)
+            # Formato completo: (id, codigo_barras, id_unico, fecha_creacion, nombres, apellidos, descripcion, formato, nombre_archivo)
             # fecha_creacion no está en la tabla, usar cadena vacía
-            resultados.append((id_db, codigo_barras, id_unico, "", nombre_empleado, codigo_empleado, formato, nombre_archivo))
+            resultados.append((id_db, codigo_barras, id_unico, "", nombres, apellidos, codigo_empleado, formato, nombre_archivo))
         
         return resultados
     

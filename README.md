@@ -17,9 +17,11 @@ Aplicación de escritorio con interfaz gráfica para generar códigos de barras 
 - **Exportación**: Exportación individual o masiva de imágenes
 - **Importación/Exportación Excel**: Gestión masiva de datos mediante archivos Excel
 - **Editor de Carnets**: Diseño de carnets de identificación con templates HTML
+- **Verificación OCR automática**: Verificación automática de carnets generados usando Tesseract OCR para asegurar que los datos se renderizaron correctamente
 - **Gestión de Usuarios**: Panel administrativo para crear usuarios, cambiar contraseñas y eliminar usuarios
 - **Gestión completa**: Crear, ver, eliminar códigos y gestionar imágenes
 - **Control de permisos**: Los administradores tienen acceso a funciones adicionales
+- **Separación de nombres y apellidos**: Manejo independiente de nombres y apellidos para mejor organización de datos
 
 ## Requisitos del Sistema
 
@@ -35,6 +37,31 @@ brew install zbar
 ```
 
 **Nota:** El script de activación del entorno virtual está configurado para configurar automáticamente las variables de entorno necesarias en macOS. Si tiene problemas, asegúrese de que Homebrew esté instalado y que `zbar` esté correctamente instalado.
+
+### Requisitos Adicionales para Verificación OCR (Opcional)
+
+La aplicación incluye verificación OCR automática de carnets generados usando **Tesseract OCR**. Esta funcionalidad es opcional pero recomendada para asegurar la calidad de los carnets generados.
+
+**Para habilitar la verificación OCR:**
+
+1. **Instalar Tesseract OCR** (aplicación separada):
+   - **Windows**: Descarga el instalador desde https://github.com/UB-Mannheim/tesseract/wiki
+   - Durante la instalación, marca la opción "Add to PATH" o instala en la ruta predeterminada: `C:\Program Files\Tesseract-OCR\`
+   - Selecciona los idiomas "Spanish" y "English" durante la instalación
+   
+2. **Instalar el paquete Python** (ya incluido en requirements.txt):
+   ```bash
+   pip install pytesseract
+   ```
+
+3. **Verificar la instalación**:
+   ```bash
+   tesseract --version
+   ```
+
+**Nota**: Si Tesseract no está en PATH, la aplicación intentará encontrarlo automáticamente en las rutas comunes de Windows. Si está en otra ubicación, puedes configurarlo manualmente en el código si es necesario.
+
+**Sin Tesseract**: La aplicación funcionará normalmente, pero la verificación OCR estará deshabilitada y los carnets se generarán sin verificación automática.
 
 ## Instalación
 
@@ -73,12 +100,15 @@ pip install -r requirements.txt
 
 Las dependencias incluyen:
 - PyQt6: Para la interfaz gráfica
+- PyQt6-WebEngine: Para renderizado de HTML en carnets
 - python-barcode: Para generar códigos de barras
 - Pillow: Para el procesamiento de imágenes
 - pyzbar: Para la lectura y validación de códigos de barras (requiere zbar en macOS)
 - numpy: Para el procesamiento de imágenes
 - python-dotenv: Para gestionar variables de entorno y configuración de seguridad
 - openpyxl: Para importación y exportación de datos en formato Excel
+- pdf2image: Para conversión de PDF a imágenes
+- pytesseract: Para verificación OCR de carnets generados (opcional, requiere Tesseract OCR instalado)
 
 ## Uso
 
@@ -120,16 +150,17 @@ La aplicación cuenta con un navbar permanente en la parte superior con los sigu
 ### Generar un código de barras
 
 1. Acceda a "Código de Barras" desde el menú **Tools** en el navbar
-2. Ingrese el nombre del empleado en el campo "Nombre del Empleado"
-3. Ingrese el código de empleado en el campo "Código de Empleado" (campo obligatorio)
-4. Seleccione el formato deseado (Code128, EAN13, EAN8, Code39)
-5. Configure las opciones de generación de ID:
+2. Ingrese los nombres del empleado en el campo "Nombres del Empleado"
+3. Ingrese los apellidos del empleado en el campo "Apellidos del Empleado"
+4. Ingrese el código de empleado en el campo "Código de Empleado" (campo obligatorio)
+5. Seleccione el formato deseado (Code128, EAN13, EAN8, Code39)
+6. Configure las opciones de generación de ID:
    - Tipo de caracteres: Alfanumérico, Numérico, o Solo Letras
    - Cantidad de caracteres (por defecto: 10)
    - Opcionalmente, incluya el nombre del empleado en el código
    - Opcionalmente, cree un texto personalizado para el código de barras (aparece un campo de entrada cuando se marca esta opción)
-6. El ID se generará automáticamente y se mostrará en tiempo real en la vista previa
-7. Haga clic en "Generar Código de Barras"
+7. El ID se generará automáticamente y se mostrará en tiempo real en la vista previa
+8. Haga clic en "Generar Código de Barras"
 
 El sistema generará automáticamente un ID único personalizado según las opciones seleccionadas. El ID aparecerá debajo del código y es el valor que se leerá al escanearlo.
 
@@ -144,7 +175,7 @@ El sistema generará automáticamente un ID único personalizado según las opci
 
 #### Gestión de Códigos de Barras
 
-- **Búsqueda**: Use el campo de búsqueda para filtrar códigos por código de barras, ID único, nombre de empleado o código de empleado
+- **Búsqueda**: Use el campo de búsqueda para filtrar códigos por código de barras, ID único, nombres, apellidos o código de empleado
 - **Vista Previa**: Al seleccionar un código en la tabla, la imagen se muestra automáticamente en el panel de generación
 - **Exportar Seleccionados**: Seleccione múltiples códigos (Ctrl+clic o Shift+clic) y exporte las imágenes a una carpeta. Los archivos se nombran como: `nombre_empleado_codigo_barras.png`
 - **Exportar Todos (ZIP)**: Exporta todos los códigos en un archivo ZIP con el mismo formato de nombres
@@ -152,16 +183,16 @@ El sistema generará automáticamente un ID único personalizado según las opci
 
 #### Funcionalidades Excel
 
-- **Exportar Data en Excel**: Exporta todos los datos de la base de datos a un archivo Excel con formato profesional. Las columnas exportadas son: ID, Código de Barras, ID Único, Fecha de Creación, Nombre del Empleado, Código de Empleado y Formato
+- **Exportar Data en Excel**: Exporta todos los datos de la base de datos a un archivo Excel con formato profesional. Las columnas exportadas son: ID, Código de Barras, ID Único, Fecha de Creación, Nombres, Apellidos, Código de Empleado y Formato
 - **Importar Data en Excel**: Importa datos desde un archivo Excel y genera códigos de barras automáticamente. El proceso incluye:
-  - Validación de datos (columnas requeridas: "Nombre del Empleado" y "Código de Empleado")
+  - Validación de datos (columnas requeridas: "Nombres", "Apellidos" y "Código de Empleado")
   - Generación automática de códigos de barras
   - Validación de códigos generados
   - Detección de duplicados
   - Opción de regenerar códigos que fallan la validación
   - Diálogo de progreso para mantener al usuario informado
   - **Normalización de formatos**: Si el Excel contiene formatos distintos de Code128 (EAN13, EAN8, Code39), estos se convierten automáticamente a Code128 durante la importación. Si no se especifica formato en el Excel, se utiliza el formato seleccionado en el dropdown de la interfaz o Code128 por defecto
-- **Descargar Excel de Ejemplo**: Descarga un archivo Excel de ejemplo con el formato correcto para importar datos. La columna "Formato (opcional)" permite especificar un formato, pero todos los formatos se normalizarán a Code128 durante la importación
+- **Descargar Excel de Ejemplo**: Descarga un archivo Excel de ejemplo con el formato correcto para importar datos. El archivo incluye las columnas: Nombres, Apellidos, Código de Empleado y Formato (opcional). La columna "Formato (opcional)" permite especificar un formato, pero todos los formatos se normalizarán a Code128 durante la importación
 
 #### Funcionalidades de Administración (Solo Admin)
 
@@ -209,11 +240,38 @@ Los administradores pueden acceder a un panel completo de gestión de usuarios d
 
 - **Crear Carnet**: Acceda desde el menú **Tools** > **Crear Carnet** para diseñar carnets de identificación con templates HTML personalizables
   - **Templates HTML personalizables**: Seleccione un template HTML desde el directorio `data/templates_carnet/` o cree uno nuevo
-  - **Variables dinámicas**: El sistema detecta automáticamente las variables del template (como `{{nombre}}`, `{{codigo_barras}}`, etc.) y genera campos de entrada para cada una
+  - **Variables dinámicas**: El sistema detecta automáticamente las variables del template (como `{{nombre}}`, `{{codigo_barras}}`, `{{nombres}}`, `{{apellidos}}`, `{{descripcion}}`, `{{id_unico}}`, etc.) y genera campos de entrada para cada una
   - **Vista previa en tiempo real**: Visualice cómo se verá el carnet antes de generarlo
   - **Generación individual**: Genere un carnet para el empleado seleccionado en la lista
   - **Generación masiva**: Genere carnets para todos los empleados de la base de datos con un solo clic, con diálogo de progreso que muestra el estado de la generación
   - **Interfaz unificada**: Los controles de template HTML y variables están consolidados en un solo panel para mejor organización
+  - **Verificación OCR automática**: Si Tesseract OCR está instalado, el sistema verifica automáticamente que los datos del carnet generado sean correctos comparando el texto extraído con OCR contra los datos esperados. Si la verificación falla, el sistema reintenta la generación automáticamente hasta 2 veces para asegurar la calidad
+
+### Verificación OCR de Carnets
+
+La aplicación incluye un sistema de verificación OCR automática que asegura que los carnets generados contengan los datos correctos.
+
+**Cómo funciona:**
+
+1. **Generación del carnet**: Se genera el carnet con los datos del empleado desde la base de datos
+2. **Extracción de texto**: Tesseract OCR extrae todo el texto visible del carnet generado
+3. **Comparación**: Se compara el texto extraído con los datos esperados (nombres, apellidos, descripción, ID único)
+4. **Reintentos automáticos**: Si algún campo no se encuentra, el sistema reintenta la generación automáticamente (hasta 2 veces)
+5. **Resultado**: El carnet se marca como verificado si todos los campos se encuentran correctamente
+
+**Campos verificados:**
+- Nombres del empleado
+- Apellidos del empleado
+- Código de empleado (descripción)
+- ID único del código de barras
+
+**Ventajas:**
+- Asegura la calidad de los carnets generados
+- Detecta problemas de renderizado automáticamente
+- Reintenta la generación si hay errores
+- Funciona tanto para generación individual como masiva
+
+**Nota**: La verificación OCR es opcional. Si Tesseract no está instalado, los carnets se generarán normalmente pero sin verificación automática.
 
 ## Arquitectura del Proyecto
 
@@ -248,7 +306,8 @@ Generador-de-codigo-de-empleado/
 │   │   ├── export_service.py     # Exportación de códigos
 │   │   ├── excel_service.py      # Importación y exportación Excel
 │   │   ├── html_renderer.py      # Renderizado de templates HTML
-│   │   └── carnet_designer.py    # Diseño de carnets (PIL)
+│   │   ├── carnet_designer.py    # Diseño de carnets (PIL)
+│   │   └── ocr_verifier.py       # Verificación OCR de carnets (Tesseract)
 │   │
 │   ├── views/                # Capa de presentación (View)
 │   │   ├── __init__.py
@@ -320,10 +379,14 @@ La tabla `codigos_barras` contiene los siguientes campos:
 - `codigo_barras`: ID único aleatorio alfanumérico codificado en el código de barras
 - `id_unico`: ID único aleatorio alfanumérico (mismo que codigo_barras)
 - `fecha_creacion`: Timestamp de creación
-- `nombre_empleado`: Nombre del empleado asociado al código
+- `nombre_empleado`: Nombre del empleado asociado al código (legacy, se mantiene para compatibilidad)
+- `nombres`: Nombres del empleado (campo nuevo, separado de apellidos)
+- `apellidos`: Apellidos del empleado (campo nuevo, separado de nombres)
 - `descripcion`: Código de empleado (campo obligatorio)
 - `formato`: Formato del código de barras utilizado (Code128, EAN13, EAN8, Code39)
 - `nombre_archivo`: Nombre del archivo de imagen generado (usado principalmente para carnets)
+
+**Nota**: El sistema mantiene compatibilidad con datos antiguos que usan `nombre_empleado`. Los nuevos registros usan `nombres` y `apellidos` por separado.
 
 **Nota**: El campo `nombre_archivo` no se muestra en la vista de códigos de barras, ya que es exclusivo del generador de carnets. En la vista de códigos de barras, el nombre del archivo se genera dinámicamente cuando es necesario.
 
@@ -384,6 +447,8 @@ El proyecto sigue el patrón **Model-View-Presenter (MVP)**:
 - **Gestión de usuarios integrada**: Panel administrativo completo para crear, editar y eliminar usuarios del sistema
 - **Sistema de logging**: Registro automático de todas las acciones de usuarios en archivos de log diarios ubicados en `data/logs/`
 - **Información del usuario**: El nombre completo del usuario autenticado se muestra en el navbar
+- **Verificación OCR con Tesseract**: Sistema automático de verificación de carnets generados usando Tesseract OCR. Compara el texto extraído del carnet con los datos esperados y reintenta la generación si hay discrepancias
+- **Separación de nombres y apellidos**: El sistema ahora maneja nombres y apellidos por separado para mejor organización de datos
 
 ## Solución de Problemas
 
@@ -427,6 +492,25 @@ Este error ocurre cuando `pyzbar` no puede encontrar la librería `zbar`. Soluci
    ```bash
    python3 main.py
    ```
+
+### Error "Tesseract OCR no está instalado o no está en PATH"
+
+Este error ocurre cuando se intenta usar la verificación OCR pero Tesseract no está instalado o no es accesible. Solución:
+
+1. **Windows**: 
+   - Descarga e instala Tesseract OCR desde https://github.com/UB-Mannheim/tesseract/wiki
+   - Durante la instalación, marca "Add to PATH" o instala en `C:\Program Files\Tesseract-OCR\`
+   - Selecciona los idiomas "Spanish" y "English"
+   - Reinicia la aplicación
+
+2. **Verificar instalación**:
+   ```bash
+   tesseract --version
+   ```
+
+3. Si Tesseract está instalado pero no en PATH, la aplicación intentará encontrarlo automáticamente en las rutas comunes de Windows.
+
+**Nota**: La verificación OCR es opcional. La aplicación funcionará sin Tesseract, pero los carnets se generarán sin verificación automática.
 
 ## Seguridad y Autenticación
 
@@ -515,6 +599,7 @@ El sistema registra las siguientes acciones:
 - Limpieza de imágenes huérfanas
 - Búsquedas realizadas
 - Generación de carnets
+- Verificación OCR de carnets (si Tesseract está disponible)
 
 ### Uso de los Logs
 
