@@ -16,7 +16,7 @@ from src.services.excel_service import ExcelService
 from src.views.main_window import MainWindow
 from src.views.widgets.progress_dialog import ProgressDialog
 from src.utils.file_utils import obtener_ruta_imagen
-from src.utils.auth_utils import solicitar_password
+from src.utils.auth_utils import solicitar_autenticacion_admin
 from src.utils.id_generator import IDGenerator
 from src.utils.user_logger import user_logger
 from src.controllers.carnet_controller import CarnetController
@@ -155,6 +155,9 @@ class MainController:
                 )
                 return
             
+            # Obtener información de la imagen generada
+            informacion_imagen = self.barcode_service.obtener_informacion_imagen(ruta_imagen)
+            
             nombre_archivo = ruta_imagen.name
             
             exito = self.db_manager.insertar_codigo(
@@ -171,7 +174,11 @@ class MainController:
                 )
                 return
             
-            self.main_window.generation_panel.mostrar_vista_previa(str(ruta_imagen))
+            # Mostrar vista previa con información adicional
+            self.main_window.generation_panel.mostrar_vista_previa(
+                str(ruta_imagen),
+                informacion_imagen
+            )
             self.cargar_codigos()
             self.actualizar_estadisticas()
             self.actualizar_id_preview()
@@ -184,12 +191,32 @@ class MainController:
             # Registrar acción
             user_logger.log_generar_codigo(self.usuario, nombre_completo, codigo_empleado, formato)
             
-            QMessageBox.information(
-                self.main_window, "Éxito",
-                f"Código de barras generado y validado exitosamente.\n"
+            # Construir mensaje de éxito con información adicional
+            mensaje_exito = (
+                f"Código de barras generado y validado exitosamente.\n\n"
                 f"ID Único: {id_unico_generado}\n"
                 f"Empleado: {nombre_completo}\n"
                 f"Validación: El código escaneado coincide con el ID generado"
+            )
+            
+            # Agregar información de la imagen si está disponible
+            if informacion_imagen:
+                if 'dimensiones' in informacion_imagen:
+                    dims = informacion_imagen['dimensiones']
+                    mensaje_exito += (
+                        f"\n\nInformación de la imagen:\n"
+                        f"Dimensiones: {dims.get('ancho', 'N/A')} x {dims.get('alto', 'N/A')} píxeles"
+                    )
+                if 'tamano_archivo_kb' in informacion_imagen:
+                    mensaje_exito += f"\nTamaño: {informacion_imagen['tamano_archivo_kb']} KB"
+                if 'calidad' in informacion_imagen:
+                    calidad = informacion_imagen['calidad']
+                    if calidad.get('es_valida', True):
+                        mensaje_exito += "\nCalidad: ✓ Imagen optimizada y validada"
+            
+            QMessageBox.information(
+                self.main_window, "Éxito",
+                mensaje_exito
             )
         except Exception as e:
             QMessageBox.critical(
@@ -340,8 +367,13 @@ class MainController:
         
         id_db, codigo_barras, id_unico, formato, nombre_archivo = resultado
         
-        # Solicitar contraseña antes de eliminar
-        if not solicitar_password(self.main_window, "eliminar este código"):
+        # Verificar autenticación de administrador antes de eliminar
+        if not solicitar_autenticacion_admin(
+            self.main_window, 
+            "eliminar este código",
+            self.usuario,
+            self.rol
+        ):
             return
         
         respuesta = QMessageBox.question(
@@ -372,8 +404,13 @@ class MainController:
     
     def limpiar_base_datos(self):
         """Limpia toda la base de datos"""
-        # Solicitar contraseña antes de limpiar la base de datos
-        if not solicitar_password(self.main_window, "limpiar toda la base de datos"):
+        # Verificar autenticación de administrador antes de limpiar
+        if not solicitar_autenticacion_admin(
+            self.main_window,
+            "limpiar toda la base de datos",
+            self.usuario,
+            self.rol
+        ):
             return
         
         respuesta = QMessageBox.question(
@@ -406,6 +443,15 @@ class MainController:
     
     def limpiar_imagenes_huerfanas(self):
         """Limpia imágenes huérfanas (imágenes sin registro en la BD)"""
+        # Verificar autenticación de administrador antes de limpiar
+        if not solicitar_autenticacion_admin(
+            self.main_window,
+            "limpiar imágenes huérfanas",
+            self.usuario,
+            self.rol
+        ):
+            return
+        
         respuesta = QMessageBox.question(
             self.main_window, "Confirmar Limpieza",
             "¿Desea eliminar las imágenes que no tienen registro en la base de datos?\n\n"

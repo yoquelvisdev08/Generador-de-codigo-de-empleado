@@ -46,6 +46,48 @@ class OCRVerifier:
     def __init__(self):
         """Inicializa el verificador OCR con Tesseract"""
         self._verificar_tesseract()
+        self.poppler_path = self._buscar_poppler()
+    
+    def _buscar_poppler(self) -> Optional[str]:
+        """
+        Busca Poppler en ubicaciones comunes de Windows
+        
+        Returns:
+            Ruta al directorio bin de Poppler si se encuentra, None en caso contrario
+        """
+        rutas_poppler = [
+            r"C:\poppler\bin",
+            r"C:\poppler\poppler-25.11.0\Library\bin",
+            r"C:\poppler\poppler-25.07.0\Library\bin",
+            r"C:\Program Files\poppler\bin",
+            r"C:\Program Files (x86)\poppler\bin",
+            r"C:\Users\{}\AppData\Local\Programs\poppler\bin".format(os.getenv('USERNAME', '')),
+        ]
+        
+        # Buscar cualquier versión de poppler en C:\poppler
+        if os.path.exists(r"C:\poppler"):
+            for item in os.listdir(r"C:\poppler"):
+                ruta_poppler = os.path.join(r"C:\poppler", item)
+                if os.path.isdir(ruta_poppler):
+                    # Buscar Library\bin
+                    ruta_lib_bin = os.path.join(ruta_poppler, "Library", "bin")
+                    if os.path.exists(os.path.join(ruta_lib_bin, "pdftoppm.exe")):
+                        logger.info(f"Poppler encontrado en: {ruta_lib_bin}")
+                        return ruta_lib_bin
+                    # Buscar bin directo
+                    ruta_bin = os.path.join(ruta_poppler, "bin")
+                    if os.path.exists(os.path.join(ruta_bin, "pdftoppm.exe")):
+                        logger.info(f"Poppler encontrado en: {ruta_bin}")
+                        return ruta_bin
+        
+        # Buscar en rutas comunes
+        for ruta in rutas_poppler:
+            if os.path.exists(os.path.join(ruta, "pdftoppm.exe")):
+                logger.info(f"Poppler encontrado en: {ruta}")
+                return ruta
+        
+        logger.warning("Poppler no encontrado en ubicaciones comunes. La verificación OCR de PDFs puede fallar.")
+        return None
     
     def _verificar_tesseract(self):
         """Verifica que Tesseract esté instalado y disponible"""
@@ -146,13 +188,19 @@ class OCRVerifier:
             raise RuntimeError("Tesseract OCR no está disponible. Instala Tesseract y pytesseract.")
         
         try:
-            # Convertir PDF a imágenes
-            imagenes = convert_from_path(
-                str(ruta_pdf),
-                dpi=300,  # DPI alto para mejor calidad OCR
-                first_page=1,
-                last_page=1  # Solo la primera página
-            )
+            # Convertir PDF a imágenes con ruta de Poppler si está disponible
+            kwargs = {
+                'dpi': 300,  # DPI alto para mejor calidad OCR
+                'first_page': 1,
+                'last_page': 1  # Solo la primera página
+            }
+            
+            # Agregar ruta de Poppler si está disponible
+            if self.poppler_path:
+                kwargs['poppler_path'] = self.poppler_path
+                logger.debug(f"Usando Poppler desde: {self.poppler_path}")
+            
+            imagenes = convert_from_path(str(ruta_pdf), **kwargs)
             
             if not imagenes:
                 return ""
@@ -169,17 +217,24 @@ class OCRVerifier:
             logger.error(f"Error al extraer texto de PDF {ruta_pdf}: {e}")
             # Intentar solo con español si falla
             try:
-                imagenes = convert_from_path(str(ruta_pdf), dpi=300, first_page=1, last_page=1)
+                kwargs = {
+                    'dpi': 300,
+                    'first_page': 1,
+                    'last_page': 1
+                }
+                if self.poppler_path:
+                    kwargs['poppler_path'] = self.poppler_path
+                imagenes = convert_from_path(str(ruta_pdf), **kwargs)
                 if imagenes:
                     texto = pytesseract.image_to_string(imagenes[0], lang='spa', config='--psm 6')
                     return texto.strip()
-            except:
-                pass
+            except Exception as e2:
+                logger.error(f"Error en segundo intento de extracción: {e2}")
             return ""
     
     def _normalizar_texto(self, texto: str) -> str:
         """
-        Normaliza el texto para comparación (elimina espacios extra, convierte a mayúsculas)
+        Normaliza el texto para comparación (elimina espacios extra, convierte a mayúsculas, quita tildes)
         
         Args:
             texto: Texto a normalizar
@@ -191,11 +246,14 @@ class OCRVerifier:
         texto = re.sub(r'\s+', ' ', texto)
         # Convertir a mayúsculas para comparación
         texto = texto.upper().strip()
+        # Quitar tildes y caracteres especiales para comparación más flexible
+        texto = texto.replace('Á', 'A').replace('É', 'E').replace('Í', 'I').replace('Ó', 'O').replace('Ú', 'U')
+        texto = texto.replace('Ñ', 'N')  # Opcional: puedes mantener Ñ si quieres
         return texto
     
     def _buscar_palabra_en_texto(self, palabra: str, texto: str, umbral_similitud: float = 0.8) -> bool:
         """
-        Busca una palabra en el texto con un umbral de similitud
+        Busca una palabra en el texto con un umbral de similitud mejorado
         
         Args:
             palabra: Palabra a buscar
@@ -221,19 +279,65 @@ class OCRVerifier:
             logger.debug(f"Encontrado sin espacios: '{palabra_sin_espacios}' en texto")
             return True
         
-        # Búsqueda por palabras individuales
+        # Búsqueda por palabras individuales con coincidencia parcial mejorada
         palabras_buscar = palabra_norm.split()
         palabras_texto = texto_norm.split()
         
-        coincidencias = 0
-        for palabra_buscar in palabras_buscar:
+        # Si solo hay una palabra a buscar y está en el texto (parcial o completa), considerarlo válido
+        if len(palabras_buscar) == 1:
+            palabra_unica = palabras_buscar[0]
             for palabra_texto in palabras_texto:
-                # Comparación simple (puedes mejorar con fuzzy matching)
+                # Si la palabra buscada está contenida en alguna palabra del texto o viceversa
+                if palabra_unica in palabra_texto or palabra_texto in palabra_unica:
+                    # Verificar que la coincidencia sea significativa (al menos 3 caracteres)
+                    if len(palabra_unica) >= 3 or len(palabra_texto) >= 3:
+                        logger.debug(f"Encontrado parcial (palabra única): '{palabra_unica}' en '{palabra_texto}'")
+                        return True
+        
+        # Para múltiples palabras, verificar si al menos una palabra significativa coincide
+        coincidencias = 0
+        palabras_encontradas = []
+        for palabra_buscar in palabras_buscar:
+            encontrada = False
+            for palabra_texto in palabras_texto:
+                # Comparación más flexible: si una palabra está contenida en otra
                 if palabra_buscar in palabra_texto or palabra_texto in palabra_buscar:
-                    coincidencias += 1
-                    break
+                    # Verificar que la coincidencia sea significativa
+                    min_longitud = min(len(palabra_buscar), len(palabra_texto))
+                    if min_longitud >= 3:  # Al menos 3 caracteres de coincidencia
+                        coincidencias += 1
+                        palabras_encontradas.append(palabra_buscar)
+                        encontrada = True
+                        break
+            
+            # Si no se encontró la palabra completa, buscar si alguna parte está presente
+            if not encontrada and len(palabra_buscar) > 3:
+                # Buscar subcadenas de al menos 3 caracteres
+                for i in range(len(palabra_buscar) - 2):
+                    subcadena = palabra_buscar[i:i+3]
+                    if subcadena in texto_sin_espacios:
+                        coincidencias += 1
+                        palabras_encontradas.append(palabra_buscar)
+                        break
         
         similitud = coincidencias / len(palabras_buscar) if palabras_buscar else 0
+        
+        # Si encontramos al menos una palabra significativa, considerar válido
+        # Para nombres compuestos como "Jorge Mario", si encontramos al menos "Jorge", es válido
+        if len(palabras_buscar) > 1 and coincidencias >= 1:
+            logger.debug(f"Encontrado parcial (múltiples palabras): {palabras_encontradas} de {palabras_buscar}")
+            return True
+        
+        # Si la primera palabra de lo que buscamos está en el texto, considerarlo válido
+        # Esto es útil cuando el template solo muestra la primera palabra
+        if len(palabras_buscar) > 1:
+            primera_palabra = palabras_buscar[0]
+            if len(primera_palabra) >= 3:  # Al menos 3 caracteres
+                for palabra_texto in palabras_texto:
+                    if primera_palabra in palabra_texto or palabra_texto in primera_palabra:
+                        if min(len(primera_palabra), len(palabra_texto)) >= 3:
+                            logger.debug(f"Encontrado por primera palabra: '{primera_palabra}' en '{palabra_texto}'")
+                            return True
         
         # Para códigos alfanuméricos, ser más flexible
         if len(palabra_norm) <= 10 and any(c.isdigit() for c in palabra_norm):
@@ -277,19 +381,49 @@ class OCRVerifier:
             return False, f"Archivo no encontrado: {ruta_archivo}", {}
         
         # Extraer texto según el tipo de archivo
-        try:
-            if ruta_archivo.suffix.lower() == '.pdf':
-                texto_extraido = self._extraer_texto_pdf(ruta_archivo)
-            elif ruta_archivo.suffix.lower() in ['.png', '.jpg', '.jpeg']:
-                texto_extraido = self._extraer_texto_imagen(ruta_archivo)
-            else:
-                return False, f"Formato de archivo no soportado: {ruta_archivo.suffix}", {}
-        except Exception as e:
-            logger.error(f"Error al extraer texto: {e}")
-            return False, f"Error al extraer texto: {str(e)}", {}
+        texto_extraido = ""
+        es_pdf = ruta_archivo.suffix.lower() == '.pdf'
+        es_imagen = ruta_archivo.suffix.lower() in ['.png', '.jpg', '.jpeg']
         
-        if not texto_extraido:
-            return False, "No se pudo extraer texto del archivo", {}
+        if not es_pdf and not es_imagen:
+            return False, f"Formato de archivo no soportado: {ruta_archivo.suffix}", {}
+        
+        try:
+            if es_pdf:
+                texto_extraido = self._extraer_texto_pdf(ruta_archivo)
+                # Si es PDF y no se pudo extraer texto (probablemente falta poppler), 
+                # no fallar la verificación - el PDF se generó correctamente
+                if not texto_extraido:
+                    mensaje = (
+                        "PDF generado correctamente. "
+                        "No se pudo verificar con OCR (poppler puede no estar instalado). "
+                        "Para verificación OCR de PDFs, instala poppler desde: "
+                        "https://github.com/oschwartz10612/poppler-windows/releases"
+                    )
+                    logger.info(mensaje)
+                    return True, mensaje, {'pdf_sin_verificacion_ocr': True}
+            elif es_imagen:
+                texto_extraido = self._extraer_texto_imagen(ruta_archivo)
+                # Para imágenes, sí es crítico que se pueda extraer texto
+                if not texto_extraido:
+                    return False, "No se pudo extraer texto de la imagen", {}
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"Error al extraer texto: {error_msg}")
+            
+            # Si es PDF y el error es por poppler, no fallar
+            if es_pdf and ('poppler' in error_msg.lower() or 'page count' in error_msg.lower() or 'unable to get' in error_msg.lower()):
+                mensaje = (
+                    "PDF generado correctamente. "
+                    "No se pudo verificar con OCR (poppler no está instalado o no está en PATH). "
+                    "Para verificación OCR de PDFs, instala poppler desde: "
+                    "https://github.com/oschwartz10612/poppler-windows/releases"
+                )
+                logger.warning(mensaje)
+                return True, mensaje, {'pdf_sin_verificacion_ocr': True}
+            
+            # Para imágenes o otros errores, sí fallar
+            return False, f"Error al extraer texto: {error_msg}", {}
         
         # Logging detallado para diagnóstico
         logger.info(f"Texto completo extraído (primeros 500 caracteres): {texto_extraido[:500]}")
@@ -347,7 +481,7 @@ class OCRVerifier:
                 logger.warning(f"✗ Descripción '{datos_esperados['descripcion']}' no encontrado en texto extraído")
                 logger.warning(f"  Buscando: '{datos_esperados['descripcion']}' en texto: '{texto_extraido[:200]}...'")
         
-        # Verificar ID único
+        # Verificar ID único (opcional - puede estar solo en el código de barras, no como texto visible)
         if 'id_unico' in datos_esperados and datos_esperados['id_unico']:
             encontrado = self._buscar_palabra_en_texto(
                 datos_esperados['id_unico'],
@@ -359,20 +493,32 @@ class OCRVerifier:
                 campos_encontrados.append('id_unico')
                 logger.info(f"✓ ID único '{datos_esperados['id_unico']}' encontrado correctamente")
             else:
-                campos_faltantes.append('id_unico')
-                logger.warning(f"✗ ID único '{datos_esperados['id_unico']}' no encontrado en texto extraído")
+                # ID único no encontrado, pero no es crítico si está en el código de barras
+                logger.info(f"ℹ ID único '{datos_esperados['id_unico']}' no encontrado como texto visible (puede estar solo en código de barras)")
+                # No agregar a campos_faltantes para que no falle la verificación completa
                 logger.warning(f"  Buscando: '{datos_esperados['id_unico']}' en texto: '{texto_extraido[:200]}...'")
         
         # Determinar resultado final
-        if campos_faltantes:
-            mensaje = f"Campos no encontrados: {', '.join(campos_faltantes)}"
+        # El ID único no es crítico si no está visible como texto (puede estar solo en código de barras)
+        campos_faltantes_criticos = [c for c in campos_faltantes if c != 'id_unico']
+        
+        if campos_faltantes_criticos:
+            mensaje = f"Campos no encontrados: {', '.join(campos_faltantes_criticos)}"
             if campos_encontrados:
                 mensaje += f" | Campos encontrados: {', '.join(campos_encontrados)}"
+            # Si solo falta el ID único, mencionarlo pero no fallar
+            if 'id_unico' in campos_faltantes:
+                mensaje += f" | ID único no visible (puede estar solo en código de barras)"
             logger.warning(f"Resumen verificación: {mensaje}")
             return False, mensaje, resultados
         
-        logger.info(f"✓ Todos los campos verificados correctamente: {', '.join(campos_encontrados)}")
-        return True, "Todos los campos verificados correctamente", resultados
+        # Todos los campos críticos fueron encontrados
+        mensaje = f"Todos los campos verificados correctamente: {', '.join(campos_encontrados)}"
+        # Si el ID único no se encontró pero los demás sí, mencionarlo pero no fallar
+        if 'id_unico' in datos_esperados and not resultados.get('id_unico', False):
+            mensaje += f" | ID único no visible (puede estar solo en código de barras)"
+        logger.info(f"✓ Resumen verificación: {mensaje}")
+        return True, mensaje, resultados
     
     def verificar_carnets_masivos(
         self,

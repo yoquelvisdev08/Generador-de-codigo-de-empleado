@@ -23,45 +23,42 @@ except ImportError:
 # Agregar el directorio raíz al path (después de las importaciones críticas)
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Lista de nombres de empleados para generar datos realistas
-NOMBRES_EMPLEADOS = [
-    "Juan Pérez", "María González", "Carlos Rodríguez", "Ana Martínez", "Luis Hernández",
-    "Laura Sánchez", "Pedro López", "Carmen García", "Miguel Torres", "Sofía Ramírez",
-    "Diego Morales", "Elena Fernández", "Roberto Jiménez", "Patricia Ruiz", "Fernando Díaz",
-    "Isabel Moreno", "Javier Castro", "Lucía Vargas", "Ricardo Ortega", "Mónica Herrera",
-    "Andrés Mendoza", "Gabriela Silva", "Sergio Rojas", "Valentina Medina", "Daniel Vega",
-    "Camila Paredes", "Alejandro Campos", "Natalia Guzmán", "Esteban Navarro", "Andrea Fuentes",
-    "Felipe Cárdenas", "Mariana Salazar", "Gustavo Peña", "Daniela Ríos", "Héctor Mendoza",
-    "Paola Suárez", "Óscar Gutiérrez", "Carolina Méndez", "Jorge Delgado", "Adriana Romero",
-    "Manuel Aguilar", "Verónica Cruz", "Raúl Espinoza", "Claudia Ponce", "Eduardo Núñez",
-    "Diana Flores", "Mauricio Bravo", "Tatiana Rivas", "Cristian Valdez", "Lorena Córdoba",
-    "Sebastián Ochoa", "Angélica Montoya", "Nicolás Restrepo", "Sandra Zapata", "Fabio Quintero",
-    "Mónica Arango", "Jhon Jairo", "Yenny López", "Camilo Restrepo", "Diana Carolina",
-    "Andrés Felipe", "Sara Milena", "Jorge Mario", "Lina María", "Carlos Andrés",
-    "María José", "Juan David", "Laura Sofía", "Santiago", "Valentina",
-    "Isabella", "Mateo", "Sofía", "Nicolás", "Mariana",
-    "Sebastián", "Daniela", "Samuel", "Valeria", "David",
-    "Alejandra", "Julián", "Gabriela", "Camilo", "Paola",
-    "Esteban", "Natalia", "Felipe", "Andrea", "Sergio",
-    "Carolina", "Andrés", "Diana", "Ricardo", "Mónica",
-    "Fernando", "Patricia", "Roberto", "Elena", "Diego",
-    "Lucía", "Javier", "Isabel", "Miguel", "Carmen",
-    "Pedro", "Laura", "Luis", "Ana", "Carlos",
-    "María", "Juan", "José", "Francisco", "Antonio",
-    "Manuel", "Pedro", "Jesús", "Miguel", "Ángel",
-    "Alejandro", "Roberto", "Fernando", "Carlos", "Luis",
-    "Jorge", "Ricardo", "Mario", "Eduardo", "Sergio",
-    "Andrés", "Felipe", "Camilo", "Sebastián", "Nicolás",
-    "David", "Daniel", "Julián", "Samuel", "Esteban",
-    "Gustavo", "Óscar", "Raúl", "Mauricio", "Fabio",
-    "Héctor", "Jhon", "Cristian", "Felipe", "Andrés",
-    "María", "Ana", "Laura", "Carmen", "Patricia",
-    "Isabel", "Elena", "Sofía", "Lucía", "Mónica",
-    "Carolina", "Diana", "Gabriela", "Natalia", "Valentina",
-    "Mariana", "Andrea", "Paola", "Claudia", "Verónica",
-    "Adriana", "Tatiana", "Lorena", "Angélica", "Sandra",
-    "Mónica", "Yenny", "Diana Carolina", "Lina María", "Sara Milena",
-    "María José", "Laura Sofía", "Isabella", "Valeria", "Alejandra"
+# Lista de nombres (solo nombres, sin apellidos)
+NOMBRES = [
+    "Juan", "María", "Carlos", "Ana", "Luis",
+    "Laura", "Pedro", "Carmen", "Miguel", "Sofía",
+    "Diego", "Elena", "Roberto", "Patricia", "Fernando",
+    "Isabel", "Javier", "Lucía", "Ricardo", "Mónica",
+    "Andrés", "Gabriela", "Sergio", "Valentina", "Daniel",
+    "Camila", "Alejandro", "Natalia", "Esteban", "Andrea",
+    "Felipe", "Mariana", "Gustavo", "Daniela", "Héctor",
+    "Paola", "Óscar", "Carolina", "Jorge", "Adriana",
+    "Manuel", "Verónica", "Raúl", "Claudia", "Eduardo",
+    "Diana", "Mauricio", "Tatiana", "Cristian", "Lorena",
+    "Sebastián", "Angélica", "Nicolás", "Sandra", "Fabio",
+    "Jhon", "Yenny", "Camilo", "Diana Carolina", "Andrés Felipe",
+    "Sara Milena", "Jorge Mario", "Lina María", "Carlos Andrés",
+    "María José", "Juan David", "Laura Sofía", "Santiago", "Isabella",
+    "Mateo", "Samuel", "Valeria", "David", "Alejandra",
+    "Julián", "José", "Francisco", "Antonio", "Jesús",
+    "Ángel", "Mario"
+]
+
+# Lista de apellidos
+APELLIDOS = [
+    "Pérez", "González", "Rodríguez", "Martínez", "Hernández",
+    "Sánchez", "López", "García", "Torres", "Ramírez",
+    "Morales", "Fernández", "Jiménez", "Ruiz", "Díaz",
+    "Moreno", "Castro", "Vargas", "Ortega", "Herrera",
+    "Mendoza", "Silva", "Rojas", "Medina", "Vega",
+    "Paredes", "Campos", "Guzmán", "Navarro", "Fuentes",
+    "Cárdenas", "Salazar", "Peña", "Ríos", "Suárez",
+    "Gutiérrez", "Méndez", "Delgado", "Romero", "Aguilar",
+    "Cruz", "Espinoza", "Ponce", "Núñez", "Flores",
+    "Bravo", "Rivas", "Valdez", "Córdoba", "Ochoa",
+    "Montoya", "Restrepo", "Zapata", "Quintero", "Arango",
+    "López", "Restrepo", "Carolina", "Milena", "Mario",
+    "María", "David", "Sofía"
 ]
 
 FORMATOS = ["Code128", "EAN13", "EAN8", "Code39"]
@@ -76,9 +73,10 @@ def generar_registro_empleado(numero: int, incluir_formato: bool = True) -> tupl
         incluir_formato: Si True, incluye formato; si False, deja el formato vacío
         
     Returns:
-        Tupla con (nombre, codigo_empleado, formato)
+        Tupla con (nombres, apellidos, codigo_empleado, formato)
     """
-    nombre = random.choice(NOMBRES_EMPLEADOS)
+    nombres = random.choice(NOMBRES)
+    apellidos = random.choice(APELLIDOS)
     codigo_empleado = f"EMP{numero:05d}"
     
     if incluir_formato:
@@ -86,7 +84,7 @@ def generar_registro_empleado(numero: int, incluir_formato: bool = True) -> tupl
     else:
         formato = None  # Sin formato
     
-    return (nombre, codigo_empleado, formato)
+    return (nombres, apellidos, codigo_empleado, formato)
 
 
 def generar_excel_prueba(cantidad: int = 2000, ruta_archivo: Path = None):
@@ -104,9 +102,10 @@ def generar_excel_prueba(cantidad: int = 2000, ruta_archivo: Path = None):
     ws = wb.active
     ws.title = "Datos de Empleados"
     
-    # Columnas
+    # Columnas (deben coincidir con lo que espera el servicio de importación)
     columnas = [
-        "Nombre del Empleado",  # Obligatorio
+        "Nombres",              # Obligatorio
+        "Apellidos",            # Obligatorio
         "Código de Empleado",   # Obligatorio
         "Formato (opcional)"    # Opcional
     ]
@@ -132,13 +131,14 @@ def generar_excel_prueba(cantidad: int = 2000, ruta_archivo: Path = None):
         # Decidir si incluir formato (60% de probabilidad)
         incluir_formato = random.random() < 0.6
         
-        nombre, codigo_empleado, formato = generar_registro_empleado(i, incluir_formato)
+        nombres, apellidos, codigo_empleado, formato = generar_registro_empleado(i, incluir_formato)
         
         # Escribir datos en la fila
-        ws.cell(row=i + 1, column=1, value=nombre)
-        ws.cell(row=i + 1, column=2, value=codigo_empleado)
+        ws.cell(row=i + 1, column=1, value=nombres)
+        ws.cell(row=i + 1, column=2, value=apellidos)
+        ws.cell(row=i + 1, column=3, value=codigo_empleado)
         if formato:
-            ws.cell(row=i + 1, column=3, value=formato)
+            ws.cell(row=i + 1, column=4, value=formato)
             registros_con_formato += 1
         else:
             registros_sin_formato += 1

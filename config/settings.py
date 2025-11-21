@@ -121,7 +121,7 @@ BARCODE_IMAGE_OPTIONS = {
     'text_distance': 5.0,
     'background': 'white',
     'foreground': 'black',
-    'write_text': True
+    'write_text': False  # No mostrar el código de texto debajo del código de barras
 }
 
 # Caracteres inválidos para nombres de archivo

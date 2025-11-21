@@ -85,7 +85,10 @@ class MainWindow(QMainWindow):
         
         # Panel de gestión de usuarios (vista terciaria - índice 2, solo para admin)
         if self.rol_usuario == "admin":
-            self.user_management_panel = UserManagementPanel(usuario_actual=self.nombre_usuario)
+            self.user_management_panel = UserManagementPanel(
+                usuario_actual=self.nombre_usuario,
+                rol_actual=self.rol_usuario
+            )
             self.stacked_widget.addWidget(self.user_management_panel)
         
         # Panel de listado (se oculta en vista de carnet)

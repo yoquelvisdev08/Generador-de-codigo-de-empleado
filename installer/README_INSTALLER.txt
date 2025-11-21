@@ -64,29 +64,38 @@ INFORMACIÓN IMPORTANTE ANTES DE INSTALAR
    - La verificación OCR de carnets estará disponible inmediatamente después de la instalación
    - Si la descarga falla, la aplicación funcionará normalmente pero sin verificación OCR
 
-7. PRIMER USO:
+7. INSTALACIÓN DE POPPLER (OPCIONAL):
+   - Poppler es necesario para la verificación OCR de archivos PDF
+   - El instalador verificará si Poppler está instalado
+   - Si no está instalado, puede instalarlo después usando el script install_poppler.bat
+   - El script está incluido en la carpeta de instalación de la aplicación
+   - Ejecute install_poppler.bat como administrador para instalar Poppler automáticamente
+   - O descargue Poppler manualmente desde: https://github.com/oschwartz10612/poppler-windows/releases
+   - Sin Poppler, la verificación OCR funcionará solo para archivos PNG, no para PDFs
+
+8. PRIMER USO:
    - Al iniciar por primera vez, se le pedirá crear un usuario administrador
    - Guarde sus credenciales en un lugar seguro
    - Configure las opciones según sus necesidades
 
-7. CONEXIÓN A INTERNET:
+9. CONEXIÓN A INTERNET:
    - Se requiere conexión a internet SOLO durante la instalación (si Tesseract OCR no está instalado)
    - El instalador descargará e instalará Tesseract OCR automáticamente si no está presente
    - Una vez instalado, NO se requiere conexión a internet para el funcionamiento
    - Todos los datos se almacenan localmente
    - No se envía información a servidores externos
 
-8. SEGURIDAD:
+10. SEGURIDAD:
    - El software utiliza cifrado para las contraseñas
    - Los datos se almacenan localmente en su equipo
    - Se recomienda realizar copias de seguridad periódicas
 
-9. ACTUALIZACIONES:
+11. ACTUALIZACIONES:
    - Las actualizaciones futuras se instalarán sobre esta versión
    - Los datos del usuario se preservarán durante las actualizaciones
    - Siempre se recomienda hacer backup antes de actualizar
 
-10. DESINSTALACIÓN:
+12. DESINSTALACIÓN:
     - Use el desinstalador desde el Panel de Control
     - Los datos de usuario NO se eliminarán automáticamente
     - Si desea eliminar los datos, borre manualmente la carpeta de datos

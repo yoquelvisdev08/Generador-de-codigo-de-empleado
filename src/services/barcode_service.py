@@ -4,14 +4,18 @@ Servicio para generación y validación de códigos de barras
 import barcode
 from barcode.writer import ImageWriter
 from barcode import Code128, EAN13, EAN8, Code39
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict
 from pathlib import Path
-from PIL import Image
+from PIL import Image, ImageStat
 from pyzbar import pyzbar
 import numpy as np
+import logging
+import os
 
 from config.settings import IMAGES_DIR, BARCODE_FORMATS, BARCODE_IMAGE_OPTIONS
 from src.utils.file_utils import limpiar_nombre_archivo, obtener_ruta_imagen, crear_directorio_si_no_existe
+
+logger = logging.getLogger(__name__)
 
 
 class BarcodeService:
@@ -74,8 +78,7 @@ class BarcodeService:
             )
             
             codigo.save(str(ruta_imagen.with_suffix('')), options={
-                **BARCODE_IMAGE_OPTIONS,
-                'text': datos
+                **BARCODE_IMAGE_OPTIONS
             })
             
             # Asegurar que la extensión .png esté presente
@@ -86,6 +89,18 @@ class BarcodeService:
                 if temp_path.exists():
                     temp_path.rename(ruta_imagen_final)
                     ruta_imagen = ruta_imagen_final
+            
+            # Verificar integridad de la imagen guardada
+            if not self._verificar_integridad_imagen(ruta_imagen):
+                raise Exception("La imagen generada está corrupta o no se guardó correctamente")
+            
+            # Optimizar imagen automáticamente (compresión inteligente)
+            self._optimizar_imagen(ruta_imagen)
+            
+            # Validar calidad de la imagen
+            calidad_info = self._validar_calidad_imagen(ruta_imagen)
+            if not calidad_info['es_valida']:
+                logger.warning(f"Advertencia de calidad en imagen {ruta_imagen.name}: {calidad_info['mensaje']}")
             
             return datos, id_unico or datos, ruta_imagen
         except Exception as e:
@@ -160,4 +175,226 @@ class BarcodeService:
             Lista de nombres de formatos disponibles
         """
         return list(self.FORMATOS_DISPONIBLES.keys())
+    
+    def _verificar_integridad_imagen(self, ruta_imagen: Path) -> bool:
+        """
+        Verifica que la imagen se haya guardado correctamente y no esté corrupta
+        
+        Args:
+            ruta_imagen: Ruta a la imagen a verificar
+            
+        Returns:
+            True si la imagen es válida, False en caso contrario
+        """
+        try:
+            if not ruta_imagen.exists():
+                logger.error(f"La imagen no existe: {ruta_imagen}")
+                return False
+            
+            # Verificar que el archivo no esté vacío
+            if ruta_imagen.stat().st_size == 0:
+                logger.error(f"La imagen está vacía: {ruta_imagen}")
+                return False
+            
+            # Intentar abrir y verificar la imagen
+            with Image.open(ruta_imagen) as img:
+                img.verify()  # Verifica que la imagen no esté corrupta
+            
+            # Reabrir la imagen (verify() cierra el archivo)
+            with Image.open(ruta_imagen) as img:
+                # Verificar dimensiones mínimas
+                if img.width < 10 or img.height < 10:
+                    logger.error(f"La imagen es demasiado pequeña: {img.width}x{img.height}")
+                    return False
+            
+            logger.debug(f"Imagen verificada correctamente: {ruta_imagen.name}")
+            return True
+        except Exception as e:
+            logger.error(f"Error al verificar integridad de imagen {ruta_imagen}: {e}")
+            return False
+    
+    def _optimizar_imagen(self, ruta_imagen: Path, calidad: int = 95) -> bool:
+        """
+        Optimiza la imagen del código de barras mediante compresión inteligente
+        
+        Args:
+            ruta_imagen: Ruta a la imagen a optimizar
+            calidad: Calidad de compresión (0-100, por defecto 95)
+            
+        Returns:
+            True si la optimización fue exitosa, False en caso contrario
+        """
+        try:
+            if not ruta_imagen.exists():
+                return False
+            
+            # Obtener tamaño original
+            tamano_original = ruta_imagen.stat().st_size
+            
+            # Abrir imagen
+            with Image.open(ruta_imagen) as img:
+                # Convertir a RGB si es necesario (para códigos de barras en escala de grises)
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
+                
+                # Guardar con optimización
+                # Usar compress_level=6 para un buen balance entre tamaño y velocidad
+                img.save(
+                    ruta_imagen,
+                    'PNG',
+                    optimize=True,
+                    compress_level=6
+                )
+            
+            # Obtener tamaño optimizado
+            tamano_optimizado = ruta_imagen.stat().st_size
+            reduccion = ((tamano_original - tamano_optimizado) / tamano_original) * 100
+            
+            if reduccion > 0:
+                logger.debug(
+                    f"Imagen optimizada: {ruta_imagen.name} - "
+                    f"Reducción: {reduccion:.1f}% "
+                    f"({tamano_original} bytes -> {tamano_optimizado} bytes)"
+                )
+            
+            return True
+        except Exception as e:
+            logger.warning(f"Error al optimizar imagen {ruta_imagen}: {e}")
+            return False
+    
+    def _validar_calidad_imagen(self, ruta_imagen: Path) -> Dict:
+        """
+        Valida la calidad de la imagen del código de barras
+        
+        Args:
+            ruta_imagen: Ruta a la imagen a validar
+            
+        Returns:
+            Diccionario con información de calidad:
+            {
+                'es_valida': bool,
+                'mensaje': str,
+                'detalles': dict con información adicional
+            }
+        """
+        try:
+            if not ruta_imagen.exists():
+                return {
+                    'es_valida': False,
+                    'mensaje': 'La imagen no existe',
+                    'detalles': {}
+                }
+            
+            with Image.open(ruta_imagen) as img:
+                # Obtener información de la imagen
+                ancho, alto = img.size
+                modo = img.mode
+                
+                # Calcular resolución efectiva (DPI aproximado basado en tamaño)
+                # Los códigos de barras típicamente tienen ~300-600 píxeles de ancho
+                # para una buena legibilidad
+                resolucion_efectiva = ancho / 2.0  # Aproximación
+                
+                # Verificar contraste (importante para códigos de barras)
+                if img.mode == 'RGB':
+                    stat = ImageStat.Stat(img)
+                    # Calcular diferencia promedio entre canales (indicador de contraste)
+                    diferencia_promedio = (
+                        abs(stat.mean[0] - stat.mean[1]) +
+                        abs(stat.mean[1] - stat.mean[2]) +
+                        abs(stat.mean[0] - stat.mean[2])
+                    ) / 3
+                else:
+                    stat = ImageStat.Stat(img)
+                    diferencia_promedio = 0
+                
+                # Verificar que la imagen tenga suficiente ancho para ser legible
+                ancho_minimo_recomendado = 200
+                if ancho < ancho_minimo_recomendado:
+                    return {
+                        'es_valida': False,
+                        'mensaje': f'El ancho de la imagen ({ancho}px) es menor al recomendado ({ancho_minimo_recomendado}px)',
+                        'detalles': {
+                            'ancho': ancho,
+                            'alto': alto,
+                            'modo': modo,
+                            'resolucion_efectiva': resolucion_efectiva
+                        }
+                    }
+                
+                # Verificar que la imagen tenga suficiente alto
+                alto_minimo_recomendado = 50
+                if alto < alto_minimo_recomendado:
+                    return {
+                        'es_valida': False,
+                        'mensaje': f'El alto de la imagen ({alto}px) es menor al recomendado ({alto_minimo_recomendado}px)',
+                        'detalles': {
+                            'ancho': ancho,
+                            'alto': alto,
+                            'modo': modo,
+                            'resolucion_efectiva': resolucion_efectiva
+                        }
+                    }
+                
+                # Si todo está bien
+                return {
+                    'es_valida': True,
+                    'mensaje': 'Imagen de calidad adecuada',
+                    'detalles': {
+                        'ancho': ancho,
+                        'alto': alto,
+                        'modo': modo,
+                        'resolucion_efectiva': resolucion_efectiva,
+                        'tamano_archivo': ruta_imagen.stat().st_size,
+                        'diferencia_contraste': diferencia_promedio
+                    }
+                }
+        except Exception as e:
+            logger.error(f"Error al validar calidad de imagen {ruta_imagen}: {e}")
+            return {
+                'es_valida': False,
+                'mensaje': f'Error al validar calidad: {str(e)}',
+                'detalles': {}
+            }
+    
+    def obtener_informacion_imagen(self, ruta_imagen: Path) -> Optional[Dict]:
+        """
+        Obtiene información detallada sobre la imagen del código de barras
+        
+        Args:
+            ruta_imagen: Ruta a la imagen
+            
+        Returns:
+            Diccionario con información de la imagen o None si hay error
+        """
+        try:
+            if not ruta_imagen.exists():
+                return None
+            
+            with Image.open(ruta_imagen) as img:
+                stat = os.stat(ruta_imagen)
+                
+                info = {
+                    'ruta': str(ruta_imagen),
+                    'nombre': ruta_imagen.name,
+                    'tamano_archivo': stat.st_size,
+                    'tamano_archivo_kb': round(stat.st_size / 1024, 2),
+                    'dimensiones': {
+                        'ancho': img.width,
+                        'alto': img.height
+                    },
+                    'modo': img.mode,
+                    'formato': img.format,
+                    'fecha_modificacion': stat.st_mtime
+                }
+                
+                # Agregar información de calidad si está disponible
+                calidad_info = self._validar_calidad_imagen(ruta_imagen)
+                if calidad_info.get('detalles'):
+                    info['calidad'] = calidad_info['detalles']
+                
+                return info
+        except Exception as e:
+            logger.error(f"Error al obtener información de imagen {ruta_imagen}: {e}")
+            return None
 

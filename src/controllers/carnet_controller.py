@@ -594,6 +594,7 @@ class CarnetController:
         from src.views.widgets.progress_dialog import ProgressDialog
         progress = ProgressDialog("Generando Carnet PNG", self.employees_panel)
         progress.setWindowModality(Qt.WindowModality.ApplicationModal)
+        progress.set_cancelable(True)  # Habilitar botón cancelar
         progress.actualizar_progreso(0, 1, "Preparando generación...")
         progress.show()
         QApplication.processEvents()
@@ -677,80 +678,79 @@ class CarnetController:
                 # Logging para debug
                 import logging
                 logger = logging.getLogger(__name__)
-                logger.info(f"Renderizando carnet HTML para {nombre_empleado}")
+                # Construir nombre completo para logging
+                nombre_completo = nombre if nombre else (f"{emp.get('nombres', '')} {emp.get('apellidos', '')}".strip() or "SIN NOMBRE")
+                logger.info(f"Renderizando carnet HTML para {nombre_completo}")
                 logger.info(f"Variables inyectadas: {list(variables.keys())}")
                 logger.info(f"Tamaño del HTML: {len(html_content)} caracteres")
                 
-                progress.actualizar_progreso(0, 1, "Renderizando carnet en alta calidad...")
-                QApplication.processEvents()
+                # Sistema de reintentos robusto para evitar imágenes en blanco
+                max_reintentos = 5
+                imagen = None
                 
-                # Asegurar que el widget esté completamente inicializado antes del primer renderizado
-                # Esto es crítico para evitar imágenes en blanco en el primer intento
-                if not self.html_renderer._inicializado:
-                    # Esperar un momento adicional para la inicialización completa
-                    from PyQt6.QtCore import QTimer
-                    QTimer.singleShot(200, lambda: None)
+                for intento in range(1, max_reintentos + 1):
+                    progress.actualizar_progreso(0, max_reintentos, f"Renderizando carnet (intento {intento}/{max_reintentos})...")
                     QApplication.processEvents()
-                
-                # Renderizar HTML a imagen con alta calidad (600 DPI)
-                # Las mejoras de sincronización ya están implementadas en html_renderer.py
-                imagen = self.html_renderer.renderizar_html_a_imagen(
-                    html_content=html_content,
-                    ancho=html_template.ancho,
-                    alto=html_template.alto,
-                    dpi=600  # Alta calidad para impresión profesional
-                )
-                
-                if imagen:
-                    logger.info(f"Imagen renderizada exitosamente: {imagen.size}")
                     
-                    # Verificar que la imagen no esté completamente en blanco antes de guardar
-                    # Muestrear algunos píxeles para verificar que tenga contenido
+                    # Asegurar que el widget esté completamente inicializado antes del primer renderizado
+                    if not self.html_renderer._inicializado:
+                        logger.info("Inicializando widget HTML...")
+                        from PyQt6.QtCore import QTimer
+                        QTimer.singleShot(500, lambda: None)
+                        QApplication.processEvents()
+                    
+                    # Esperar antes de renderizar (más tiempo en los primeros intentos)
+                    if intento > 1:
+                        tiempo_espera = 1500 if intento == 2 else (1000 if intento == 3 else 800)
+                        from PyQt6.QtCore import QTimer
+                        QTimer.singleShot(tiempo_espera, lambda: None)
+                        QApplication.processEvents()
+                    
+                    # Renderizar HTML a imagen con alta calidad (600 DPI)
+                    imagen = self.html_renderer.renderizar_html_a_imagen(
+                        html_content=html_content,
+                        ancho=html_template.ancho,
+                        alto=html_template.alto,
+                        dpi=600  # Alta calidad para impresión profesional
+                    )
+                    
+                    if not imagen:
+                        logger.warning(f"Intento {intento}: No se generó imagen")
+                        if intento < max_reintentos:
+                            continue
+                        else:
+                            break
+                    
+                    # Verificar que la imagen no esté completamente en blanco
                     ancho_img, alto_img = imagen.size
                     if ancho_img > 100 and alto_img > 100:
-                        # Verificar algunos píxeles aleatorios
                         from PIL import ImageStat
                         stat = ImageStat.Stat(imagen)
-                        # Si todos los canales tienen el mismo valor y es blanco (255), probablemente está en blanco
                         if len(stat.mean) >= 3:
                             media_r, media_g, media_b = stat.mean[0], stat.mean[1], stat.mean[2]
                             # Si la media es muy cercana a 255 en todos los canales, está en blanco
                             if media_r > 250 and media_g > 250 and media_b > 250:
-                                logger.warning("La imagen renderizada parece estar completamente en blanco")
-                                # Intentar renderizar nuevamente con más tiempo
-                                progress.actualizar_progreso(0, 1, "Reintentando renderizado...")
-                                QApplication.processEvents()
-                                
-                                # Esperar un momento adicional
-                                from PyQt6.QtCore import QTimer
-                                QTimer.singleShot(1000, lambda: None)
-                                QApplication.processEvents()
-                                
-                                # Re-renderizar
-                                imagen = self.html_renderer.renderizar_html_a_imagen(
-                                    html_content=html_content,
-                                    ancho=html_template.ancho,
-                                    alto=html_template.alto,
-                                    dpi=600
-                                )
-                                
-                                if not imagen:
-                                    progress.close()
-                                    QMessageBox.warning(
-                                        self.employees_panel,
-                                        "Error",
-                                        "No se pudo renderizar el carnet desde el HTML después del reintento"
-                                    )
-                                    return
-                else:
-                    logger.error("No se pudo renderizar la imagen desde HTML")
+                                logger.warning(f"Intento {intento}: Imagen en blanco detectada (R:{media_r:.1f}, G:{media_g:.1f}, B:{media_b:.1f})")
+                                if intento < max_reintentos:
+                                    progress.actualizar_progreso(intento, max_reintentos, f"Imagen en blanco detectada, reintentando ({intento}/{max_reintentos})...")
+                                    QApplication.processEvents()
+                                    imagen = None  # Marcar para reintentar
+                                    continue
+                                else:
+                                    logger.error("Imagen en blanco después de todos los intentos")
+                                    break
+                    
+                    # Si llegamos aquí, la imagen es válida
+                    logger.info(f"✓ Imagen renderizada correctamente en intento {intento}: {imagen.size}")
+                    break
                 
                 if not imagen:
                     progress.close()
                     QMessageBox.warning(
                         self.employees_panel,
                         "Error",
-                        "No se pudo renderizar el carnet desde el HTML"
+                        f"No se pudo renderizar el carnet después de {max_reintentos} intentos.\n\n"
+                        "Intente generar nuevamente o verifique el template HTML."
                     )
                     return
                 
@@ -761,14 +761,61 @@ class CarnetController:
                 # Guardar con máxima calidad (600 DPI, sin optimización, compresión mínima)
                 imagen.save(ruta_png_path, "PNG", dpi=(600, 600), optimize=False, compress_level=1)
                 
+                # Verificar cancelación antes de verificar con OCR
+                if progress.fue_cancelado():
+                    logger.info("Generación individual PNG cancelada antes de verificar con OCR")
+                    progress.close()
+                    return
+                
+                # Verificar con OCR si está disponible
+                mensaje_verificacion = ""
+                if self.usar_ocr and self.ocr_verifier:
+                    import logging
+                    logger_ocr = logging.getLogger(__name__)
+                    progress.actualizar_progreso(0, 1, "Verificando con OCR...")
+                    QApplication.processEvents()
+                    
+                    # Verificar cancelación antes de verificar OCR
+                    if progress.fue_cancelado():
+                        logger.info("Generación individual PNG cancelada durante verificación OCR")
+                        progress.close()
+                        return
+                    
+                    # Preparar datos esperados para OCR
+                    datos_esperados = {}
+                    if emp.get('nombres'):
+                        datos_esperados['nombres'] = emp['nombres']
+                    if emp.get('apellidos'):
+                        datos_esperados['apellidos'] = emp['apellidos']
+                    if emp.get('descripcion'):
+                        datos_esperados['descripcion'] = emp['descripcion']
+                    if emp.get('id_unico'):
+                        datos_esperados['id_unico'] = emp['id_unico']
+                    
+                    # Verificar con OCR
+                    exito_ocr, mensaje_ocr, detalles = self.ocr_verifier.verificar_carnet(
+                        ruta_png_path,
+                        datos_esperados,
+                        umbral_similitud=0.65
+                    )
+                    
+                    if exito_ocr:
+                        mensaje_verificacion = f"\n\n✓ Verificación OCR: {mensaje_ocr}"
+                        logger_ocr.info(f"✓ Carnet PNG verificado correctamente con OCR")
+                    else:
+                        mensaje_verificacion = f"\n\n⚠ Verificación OCR: {mensaje_ocr}"
+                        logger_ocr.warning(f"⚠ Verificación OCR falló: {mensaje_ocr}")
+                
                 progress.actualizar_progreso(1, 1, "¡Carnet generado exitosamente!")
                 QApplication.processEvents()
+                progress.marcar_completado()  # Marcar como completado antes de cerrar
                 progress.close()
                 
+                mensaje_final = f"Carnet PNG generado exitosamente:\n{ruta_png_path}{mensaje_verificacion}"
                 QMessageBox.information(
                     self.employees_panel,
                     "Éxito",
-                    f"Carnet PNG generado exitosamente:\n{ruta_png_path}"
+                    mensaje_final
                 )
             except Exception as e:
                 import logging
@@ -796,13 +843,48 @@ class CarnetController:
                 
                 # Guardar carnet en la ubicación elegida por el usuario
                 if self.designer.guardar_carnet(imagen, ruta_png_path):
+                    # Verificar con OCR si está disponible
+                    mensaje_verificacion = ""
+                    if self.usar_ocr and self.ocr_verifier:
+                        import logging
+                        logger_ocr = logging.getLogger(__name__)
+                        progress.actualizar_progreso(0, 1, "Verificando con OCR...")
+                        QApplication.processEvents()
+                        
+                        # Preparar datos esperados para OCR
+                        datos_esperados = {}
+                        if emp.get('nombres'):
+                            datos_esperados['nombres'] = emp['nombres']
+                        if emp.get('apellidos'):
+                            datos_esperados['apellidos'] = emp['apellidos']
+                        if emp.get('descripcion'):
+                            datos_esperados['descripcion'] = emp['descripcion']
+                        if emp.get('id_unico'):
+                            datos_esperados['id_unico'] = emp['id_unico']
+                        
+                        # Verificar con OCR
+                        exito_ocr, mensaje_ocr, detalles = self.ocr_verifier.verificar_carnet(
+                            ruta_png_path,
+                            datos_esperados,
+                            umbral_similitud=0.65
+                        )
+                        
+                        if exito_ocr:
+                            mensaje_verificacion = f"\n\n✓ Verificación OCR: {mensaje_ocr}"
+                            logger_ocr.info(f"✓ Carnet PNG verificado correctamente con OCR")
+                        else:
+                            mensaje_verificacion = f"\n\n⚠ Verificación OCR: {mensaje_ocr}"
+                            logger_ocr.warning(f"⚠ Verificación OCR falló: {mensaje_ocr}")
+                    
                     progress.actualizar_progreso(1, 1, "¡Carnet generado exitosamente!")
                     QApplication.processEvents()
                     progress.close()
+                    
+                    mensaje_final = f"Carnet PNG generado exitosamente:\n{ruta_png_path}{mensaje_verificacion}"
                     QMessageBox.information(
                         self.employees_panel,
                         "Éxito",
-                        f"Carnet PNG generado exitosamente:\n{ruta_png_path}"
+                        mensaje_final
                     )
                 else:
                     progress.close()
@@ -826,7 +908,8 @@ class CarnetController:
         ruta_salida: Path,
         verificar_ocr: bool = True,
         max_reintentos: int = 3,
-        callback_progreso: Optional[callable] = None
+        callback_progreso: Optional[callable] = None,
+        progress_dialog: Optional[object] = None
     ) -> tuple[bool, str, Optional[Path]]:
         """
         Genera un carnet y verifica con OCR que se generó correctamente.
@@ -858,6 +941,11 @@ class CarnetController:
         
         # Generar con verificación OCR
         for intento in range(1, max_reintentos + 1):
+            # Verificar cancelación antes de cada intento
+            if progress_dialog and hasattr(progress_dialog, 'fue_cancelado') and progress_dialog.fue_cancelado():
+                logger.info("Generación cancelada por el usuario durante verificación OCR")
+                return False, "Generación cancelada por el usuario", None
+            
             try:
                 logger.info(f"Generando carnet (intento {intento}/{max_reintentos})...")
                 logger.info(f"Datos del empleado: nombres={empleado_datos.get('nombres')}, apellidos={empleado_datos.get('apellidos')}, descripcion={empleado_datos.get('descripcion')}, id_unico={empleado_datos.get('id_unico')}")
@@ -865,8 +953,18 @@ class CarnetController:
                 if callback_progreso:
                     callback_progreso(f"Generando carnet (intento {intento}/{max_reintentos})...")
                 
+                # Verificar cancelación antes de generar
+                if progress_dialog and hasattr(progress_dialog, 'fue_cancelado') and progress_dialog.fue_cancelado():
+                    logger.info("Generación cancelada por el usuario antes de generar imagen")
+                    return False, "Generación cancelada por el usuario", None
+                
                 # Generar imagen
                 imagen = funcion_generacion()
+                
+                # Verificar cancelación después de generar
+                if progress_dialog and hasattr(progress_dialog, 'fue_cancelado') and progress_dialog.fue_cancelado():
+                    logger.info("Generación cancelada por el usuario después de generar imagen")
+                    return False, "Generación cancelada por el usuario", None
                 
                 if not imagen:
                     logger.warning(f"Intento {intento}: Generación falló, no se creó la imagen")
@@ -985,6 +1083,7 @@ class CarnetController:
         from src.views.widgets.progress_dialog import ProgressDialog
         progress = ProgressDialog("Generando Carnets Masivos", self.employees_panel)
         progress.setWindowModality(Qt.WindowModality.ApplicationModal)
+        progress.set_cancelable(True)  # Habilitar botón cancelar
         progress.show()
         QApplication.processEvents()
         
@@ -1031,6 +1130,11 @@ class CarnetController:
                 template = self.controls_panel.obtener_template_actualizado()
             
             for indice, empleado in enumerate(empleados, 1):
+                # Verificar si se canceló
+                if progress.fue_cancelado():
+                    logger.info("Generación masiva cancelada por el usuario")
+                    break
+                
                 # Actualizar progreso
                 nombre_empleado_temp = ""
                 try:
@@ -1047,6 +1151,11 @@ class CarnetController:
                     f"Generando carnet {indice} de {total}\nFaltan {faltantes} carnet(s) por generar\n{estado_ocr}\nEmpleado: {nombre_empleado_temp}"
                 )
                 QApplication.processEvents()
+                
+                # Verificar cancelación después de actualizar UI
+                if progress.fue_cancelado():
+                    logger.info("Generación masiva cancelada por el usuario")
+                    break
                 try:
                     # Desempaquetar usando función auxiliar
                     emp = self._desempaquetar_empleado(empleado)
@@ -1199,6 +1308,11 @@ class CarnetController:
                             )
                             QApplication.processEvents()
                         
+                        # Verificar cancelación antes de generar
+                        if progress.fue_cancelado():
+                            logger.info("Generación cancelada antes de generar carnet PIL")
+                            break
+                        
                         # Generar con verificación OCR
                         exito, mensaje_ocr, ruta_final = self._generar_carnet_con_verificacion_ocr(
                             generar_carnet_pil,
@@ -1206,8 +1320,14 @@ class CarnetController:
                             ruta_carnet,
                             verificar_ocr=self.usar_ocr,
                             max_reintentos=2,
-                            callback_progreso=actualizar_progreso_ocr if self.usar_ocr else None
+                            callback_progreso=actualizar_progreso_ocr if self.usar_ocr else None,
+                            progress_dialog=progress  # Pasar el diálogo para verificar cancelación
                         )
+                        
+                        # Verificar cancelación después de generar
+                        if progress.fue_cancelado():
+                            logger.info("Generación cancelada después de generar carnet PIL")
+                            break
                         
                         logger_debug.info(f"Resultado PIL: exito={exito}, mensaje={mensaje_ocr}")
                         
@@ -1238,10 +1358,48 @@ class CarnetController:
                         nombre_error = "desconocido"
                     logger.error(f"Error al generar carnet para {nombre_error}: {e}")
             
+            # Verificar si se canceló antes de comprimir
+            if progress.fue_cancelado():
+                logger.info("Generación cancelada antes de comprimir ZIP")
+                if directorio_temp and directorio_temp.exists():
+                    import shutil
+                    try:
+                        shutil.rmtree(directorio_temp)
+                    except:
+                        pass
+                progress.close()
+                QMessageBox.information(
+                    self.employees_panel,
+                    "Generación Cancelada",
+                    f"Generación cancelada por el usuario.\n\n"
+                    f"Carnets generados hasta el momento: {exitosos}\n"
+                    f"Errores: {errores}"
+                )
+                return
+            
             # Crear archivo ZIP con todos los carnets generados
             if archivos_generados:
                 progress.actualizar_progreso(total, total + 1, "Comprimiendo carnets en ZIP...")
                 QApplication.processEvents()
+                
+                # Verificar cancelación antes de comprimir
+                if progress.fue_cancelado():
+                    logger.info("Generación cancelada antes de comprimir ZIP")
+                    if directorio_temp and directorio_temp.exists():
+                        import shutil
+                        try:
+                            shutil.rmtree(directorio_temp)
+                        except:
+                            pass
+                    progress.close()
+                    QMessageBox.information(
+                        self.employees_panel,
+                        "Generación Cancelada",
+                        f"Generación cancelada por el usuario.\n\n"
+                        f"Carnets generados hasta el momento: {exitosos}\n"
+                        f"Errores: {errores}"
+                    )
+                    return
                 
                 try:
                     with zipfile.ZipFile(str(ruta_zip_path), 'w', zipfile.ZIP_DEFLATED) as zipf:
@@ -1274,6 +1432,7 @@ class CarnetController:
                     logger.warning(f"No se pudo eliminar el directorio temporal: {e}")
         
         # Cerrar diálogo de progreso
+        progress.marcar_completado()  # Marcar como completado antes de cerrar
         progress.close()
         
         mensaje = f"Generación completada:\n{exitosos} carnet(s) generado(s) y guardado(s) en:\n{ruta_zip_path}"
@@ -1422,16 +1581,89 @@ class CarnetController:
                 html_content = Path(html_template.ruta_html).read_text(encoding='utf-8')
                 html_content = self.html_renderer._inyectar_variables(html_content, variables)
                 
-                progress.actualizar_progreso(0, 1, "Renderizando carnet en alta calidad...")
-                QApplication.processEvents()
+                # Sistema de reintentos robusto para evitar imágenes en blanco
+                import logging
+                logger_pdf = logging.getLogger(__name__)
+                max_reintentos = 5
+                imagen = None
                 
-                # Renderizar a máxima calidad (1200 DPI para PDF de super mega calidad)
-                imagen = self.html_renderer.renderizar_html_a_imagen(
-                    html_content=html_content,
-                    ancho=html_template.ancho,
-                    alto=html_template.alto,
-                    dpi=1200  # Super mega calidad para PDF
-                )
+                for intento in range(1, max_reintentos + 1):
+                    # Verificar cancelación antes de cada intento
+                    if progress.fue_cancelado():
+                        logger_pdf.info("Generación individual PDF cancelada por el usuario")
+                        progress.close()
+                        return
+                    
+                    progress.actualizar_progreso(0, max_reintentos, f"Renderizando carnet PDF (intento {intento}/{max_reintentos})...")
+                    QApplication.processEvents()
+                    
+                    # Verificar cancelación después de actualizar UI
+                    if progress.fue_cancelado():
+                        logger_pdf.info("Generación individual PDF cancelada por el usuario")
+                        progress.close()
+                        return
+                    
+                    # Asegurar que el widget esté completamente inicializado
+                    if not self.html_renderer._inicializado:
+                        logger_pdf.info("Inicializando widget HTML...")
+                        from PyQt6.QtCore import QTimer
+                        QTimer.singleShot(500, lambda: None)
+                        QApplication.processEvents()
+                    
+                    # Esperar antes de renderizar (más tiempo en los primeros intentos)
+                    if intento > 1:
+                        tiempo_espera = 1500 if intento == 2 else (1000 if intento == 3 else 800)
+                        from PyQt6.QtCore import QTimer
+                        QTimer.singleShot(tiempo_espera, lambda: None)
+                        QApplication.processEvents()
+                    
+                    # Renderizar a máxima calidad (1200 DPI para PDF de super mega calidad)
+                    imagen = self.html_renderer.renderizar_html_a_imagen(
+                        html_content=html_content,
+                        ancho=html_template.ancho,
+                        alto=html_template.alto,
+                        dpi=1200  # Super mega calidad para PDF
+                    )
+                    
+                    if not imagen:
+                        logger_pdf.warning(f"Intento {intento}: No se generó imagen")
+                        if intento < max_reintentos:
+                            continue
+                        else:
+                            break
+                    
+                    # Verificar que la imagen no esté completamente en blanco
+                    ancho_img, alto_img = imagen.size
+                    if ancho_img > 100 and alto_img > 100:
+                        from PIL import ImageStat
+                        stat = ImageStat.Stat(imagen)
+                        if len(stat.mean) >= 3:
+                            media_r, media_g, media_b = stat.mean[0], stat.mean[1], stat.mean[2]
+                            # Si la media es muy cercana a 255 en todos los canales, está en blanco
+                            if media_r > 250 and media_g > 250 and media_b > 250:
+                                logger_pdf.warning(f"Intento {intento}: Imagen en blanco detectada (R:{media_r:.1f}, G:{media_g:.1f}, B:{media_b:.1f})")
+                                if intento < max_reintentos:
+                                    progress.actualizar_progreso(intento, max_reintentos, f"Imagen en blanco detectada, reintentando ({intento}/{max_reintentos})...")
+                                    QApplication.processEvents()
+                                    imagen = None  # Marcar para reintentar
+                                    continue
+                                else:
+                                    logger_pdf.error("Imagen en blanco después de todos los intentos")
+                                    break
+                    
+                    # Si llegamos aquí, la imagen es válida
+                    logger_pdf.info(f"✓ Imagen renderizada correctamente en intento {intento}: {imagen.size}")
+                    break
+                
+                if not imagen:
+                    progress.close()
+                    QMessageBox.warning(
+                        self.employees_panel,
+                        "Error",
+                        f"No se pudo renderizar el carnet PDF después de {max_reintentos} intentos.\n\n"
+                        "Intente generar nuevamente o verifique el template HTML."
+                    )
+                    return
             else:
                 # Usar sistema PIL
                 template = self.controls_panel.obtener_template_actualizado()
@@ -1477,14 +1709,61 @@ class CarnetController:
                 quality=100
             )
             
+            # Verificar cancelación antes de verificar con OCR
+            if progress.fue_cancelado():
+                logger.info("Generación individual PDF cancelada antes de verificar con OCR")
+                progress.close()
+                return
+            
+            # Verificar con OCR si está disponible
+            mensaje_verificacion = ""
+            if self.usar_ocr and self.ocr_verifier:
+                import logging
+                logger_ocr = logging.getLogger(__name__)
+                progress.actualizar_progreso(0, 1, "Verificando con OCR...")
+                QApplication.processEvents()
+                
+                # Verificar cancelación antes de verificar OCR
+                if progress.fue_cancelado():
+                    logger.info("Generación individual PDF cancelada durante verificación OCR")
+                    progress.close()
+                    return
+                
+                # Preparar datos esperados para OCR
+                datos_esperados = {}
+                if emp.get('nombres'):
+                    datos_esperados['nombres'] = emp['nombres']
+                if emp.get('apellidos'):
+                    datos_esperados['apellidos'] = emp['apellidos']
+                if emp.get('descripcion'):
+                    datos_esperados['descripcion'] = emp['descripcion']
+                if emp.get('id_unico'):
+                    datos_esperados['id_unico'] = emp['id_unico']
+                
+                # Verificar con OCR
+                exito_ocr, mensaje_ocr, detalles = self.ocr_verifier.verificar_carnet(
+                    ruta_pdf_path,
+                    datos_esperados,
+                    umbral_similitud=0.65
+                )
+                
+                if exito_ocr:
+                    mensaje_verificacion = f"\n\n✓ Verificación OCR: {mensaje_ocr}"
+                    logger_ocr.info(f"✓ Carnet PDF verificado correctamente con OCR")
+                else:
+                    mensaje_verificacion = f"\n\n⚠ Verificación OCR: {mensaje_ocr}"
+                    logger_ocr.warning(f"⚠ Verificación OCR falló: {mensaje_ocr}")
+            
             progress.actualizar_progreso(1, 1, "¡PDF generado exitosamente!")
             QApplication.processEvents()
+            progress.marcar_completado()  # Marcar como completado antes de cerrar
             progress.close()
             
+            mensaje_final = f"Carnet PDF generado exitosamente:\n{ruta_pdf_path}{mensaje_verificacion}"
             QMessageBox.information(
                 self.employees_panel,
                 "Éxito",
-                f"Carnet PDF generado exitosamente:\n{ruta_pdf_path}"
+                mensaje_final
             )
         except Exception as e:
             import logging
@@ -1499,6 +1778,9 @@ class CarnetController:
     
     def generar_carnets_masivos_pdf(self):
         """Genera carnets en formato PDF de alta calidad para todos los empleados y los guarda en un ZIP"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
         empleados = self.employees_panel.obtener_todos_empleados()
         
         if not empleados:
@@ -1542,6 +1824,7 @@ class CarnetController:
         from src.views.widgets.progress_dialog import ProgressDialog
         progress = ProgressDialog("Generando Carnets PDF Masivos", self.employees_panel)
         progress.setWindowModality(Qt.WindowModality.ApplicationModal)
+        progress.set_cancelable(True)  # Habilitar botón cancelar
         progress.show()
         QApplication.processEvents()
         
@@ -1583,6 +1866,11 @@ class CarnetController:
                 template = self.controls_panel.obtener_template_actualizado()
             
             for indice, empleado in enumerate(empleados, 1):
+                # Verificar si se canceló
+                if progress.fue_cancelado():
+                    logger.info("Generación masiva PDF cancelada por el usuario")
+                    break
+                
                 nombre_empleado_temp = ""
                 try:
                     if len(empleado) >= 5:
@@ -1591,12 +1879,18 @@ class CarnetController:
                     nombre_empleado_temp = "empleado"
                 
                 faltantes = total - indice + 1
+                estado_ocr = "✓ Con verificación OCR" if self.usar_ocr else "⚠ Sin verificación OCR (no disponible)"
                 progress.actualizar_progreso(
                     indice - 1,
                     total,
-                    f"Generando PDF {indice} de {total}\nFaltan {faltantes} PDF(s) por generar\nEmpleado: {nombre_empleado_temp}"
+                    f"Generando PDF {indice} de {total}\nFaltan {faltantes} PDF(s) por generar\n{estado_ocr}\nEmpleado: {nombre_empleado_temp}"
                 )
                 QApplication.processEvents()
+                
+                # Verificar cancelación después de actualizar UI
+                if progress.fue_cancelado():
+                    logger.info("Generación masiva PDF cancelada por el usuario")
+                    break
                 
                 try:
                     # Desempaquetar datos usando función auxiliar
@@ -1673,6 +1967,11 @@ class CarnetController:
                                 dpi=1200
                             )
                         
+                        # Verificar cancelación antes de generar
+                        if progress.fue_cancelado():
+                            logger.info("Generación cancelada antes de generar carnet PDF HTML")
+                            break
+                        
                         # Generar PNG temporal para verificación OCR
                         ruta_png_temp = ruta_pdf.with_suffix('.png')
                         exito, mensaje_ocr, ruta_png_final = self._generar_carnet_con_verificacion_ocr(
@@ -1680,8 +1979,14 @@ class CarnetController:
                             emp,
                             ruta_png_temp,
                             verificar_ocr=self.usar_ocr,
-                            max_reintentos=2
+                            max_reintentos=2,
+                            progress_dialog=progress  # Pasar el diálogo para verificar cancelación
                         )
+                        
+                        # Verificar cancelación después de generar
+                        if progress.fue_cancelado():
+                            logger.info("Generación cancelada después de generar carnet PDF HTML")
+                            break
                         
                         # Rastrear estado de OCR
                         if self.usar_ocr:
@@ -1738,6 +2043,11 @@ class CarnetController:
                                 img = img.resize((nuevo_ancho, nuevo_alto), Image.Resampling.LANCZOS)
                             return img
                     
+                        # Verificar cancelación antes de generar
+                        if progress.fue_cancelado():
+                            logger.info("Generación cancelada antes de generar carnet PDF PIL")
+                            break
+                        
                         # Generar PNG temporal para verificación OCR
                         ruta_png_temp = ruta_pdf.with_suffix('.png')
                         exito, mensaje_ocr, ruta_png_final = self._generar_carnet_con_verificacion_ocr(
@@ -1745,8 +2055,14 @@ class CarnetController:
                             emp,
                             ruta_png_temp,
                             verificar_ocr=self.usar_ocr,
-                            max_reintentos=2
+                            max_reintentos=2,
+                            progress_dialog=progress  # Pasar el diálogo para verificar cancelación
                         )
+                        
+                        # Verificar cancelación después de generar
+                        if progress.fue_cancelado():
+                            logger.info("Generación cancelada después de generar carnet PDF PIL")
+                            break
                         
                         # Rastrear estado de OCR
                         if self.usar_ocr:
@@ -1797,10 +2113,48 @@ class CarnetController:
                         nombre_error = "desconocido"
                     logger.error(f"Error al generar PDF para {nombre_error}: {e}")
             
+            # Verificar si se canceló antes de comprimir
+            if progress.fue_cancelado():
+                logger.info("Generación masiva PDF cancelada antes de comprimir ZIP")
+                if directorio_temp and directorio_temp.exists():
+                    import shutil
+                    try:
+                        shutil.rmtree(directorio_temp)
+                    except:
+                        pass
+                progress.close()
+                QMessageBox.information(
+                    self.employees_panel,
+                    "Generación Cancelada",
+                    f"Generación cancelada por el usuario.\n\n"
+                    f"PDFs generados hasta el momento: {exitosos}\n"
+                    f"Errores: {errores}"
+                )
+                return
+            
             # Crear archivo ZIP con todos los PDFs generados
             if archivos_generados:
                 progress.actualizar_progreso(total, total + 1, "Comprimiendo PDFs en ZIP...")
                 QApplication.processEvents()
+                
+                # Verificar cancelación antes de comprimir
+                if progress.fue_cancelado():
+                    logger.info("Generación masiva PDF cancelada antes de comprimir ZIP")
+                    if directorio_temp and directorio_temp.exists():
+                        import shutil
+                        try:
+                            shutil.rmtree(directorio_temp)
+                        except:
+                            pass
+                    progress.close()
+                    QMessageBox.information(
+                        self.employees_panel,
+                        "Generación Cancelada",
+                        f"Generación cancelada por el usuario.\n\n"
+                        f"PDFs generados hasta el momento: {exitosos}\n"
+                        f"Errores: {errores}"
+                    )
+                    return
                 
                 try:
                     with zipfile.ZipFile(str(ruta_zip_path), 'w', zipfile.ZIP_DEFLATED) as zipf:
@@ -1834,6 +2188,7 @@ class CarnetController:
         
         progress.actualizar_progreso(total + 1, total + 1, "¡Generación completada!")
         QApplication.processEvents()
+        progress.marcar_completado()  # Marcar como completado antes de cerrar
         progress.close()
         
         mensaje = f"Generación completada:\n{exitosos} PDF(s) generado(s) y guardado(s) en:\n{ruta_zip_path}"

@@ -329,12 +329,13 @@ class GenerationPanel(QWidget):
         self.check_texto_personalizado.toggled.connect(callback)
         self.campo_texto_personalizado.textChanged.connect(callback)
     
-    def mostrar_vista_previa(self, ruta_imagen: str):
+    def mostrar_vista_previa(self, ruta_imagen: str, informacion_imagen: dict = None):
         """
-        Muestra la vista previa de la imagen
+        Muestra la vista previa de la imagen con información adicional
         
         Args:
             ruta_imagen: Ruta a la imagen
+            informacion_imagen: Diccionario con información adicional de la imagen (opcional)
         """
         from PyQt6.QtGui import QPixmap
         from PyQt6.QtCore import Qt as QtCore
@@ -347,4 +348,40 @@ class GenerationPanel(QWidget):
                 QtCore.TransformationMode.SmoothTransformation
             )
             self.label_vista_previa.setPixmap(pixmap_escalado)
+            
+            # Mostrar información adicional si está disponible
+            if informacion_imagen:
+                tooltip = self._generar_tooltip_informacion(informacion_imagen)
+                self.label_vista_previa.setToolTip(tooltip)
+        else:
+            self.label_vista_previa.setText("Error al cargar la imagen")
+    
+    def _generar_tooltip_informacion(self, info: dict) -> str:
+        """
+        Genera un tooltip con información de la imagen
+        
+        Args:
+            info: Diccionario con información de la imagen
+            
+        Returns:
+            String con el tooltip formateado
+        """
+        lineas = []
+        
+        if 'dimensiones' in info:
+            dims = info['dimensiones']
+            lineas.append(f"Dimensiones: {dims.get('ancho', 'N/A')} x {dims.get('alto', 'N/A')} px")
+        
+        if 'tamano_archivo_kb' in info:
+            lineas.append(f"Tamaño: {info['tamano_archivo_kb']} KB")
+        
+        if 'modo' in info:
+            lineas.append(f"Modo: {info['modo']}")
+        
+        if 'calidad' in info:
+            calidad = info['calidad']
+            if 'resolucion_efectiva' in calidad:
+                lineas.append(f"Resolución efectiva: ~{calidad['resolucion_efectiva']:.0f} DPI")
+        
+        return "\n".join(lineas) if lineas else "Información no disponible"
 

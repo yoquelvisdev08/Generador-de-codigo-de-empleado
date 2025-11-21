@@ -87,6 +87,12 @@ Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion isreadme
 Source: "LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 ; Archivo .env de ejemplo
 Source: "env.template"; DestDir: "{app}"; DestName: ".env"; Flags: ignoreversion
+; Scripts de instalación de dependencias
+Source: "..\install_poppler.bat"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\verificar_poppler.bat"; DestDir: "{app}"; Flags: ignoreversion
+; Poppler - empaquetado e instalado automáticamente en C:\Program Files\poppler
+Source: "poppler-25.07.0\Library\bin\*"; DestDir: "{autopf}\poppler\bin"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "poppler-25.07.0\share\*"; DestDir: "{autopf}\poppler\share"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Dirs]
 ; Crear directorios de datos con permisos completos (en la ubicación seleccionada por el usuario)
@@ -135,6 +141,12 @@ var
 // https://github.com/UB-Mannheim/tesseract/wiki
 const
   TESSERACT_DOWNLOAD_URL = 'https://github.com/tesseract-ocr/tesseract/releases/download/5.5.0/tesseract-ocr-w64-setup-5.5.0.20241111.exe';
+  
+// URL de descarga de Poppler para Windows
+// Poppler es necesario para la verificación OCR de archivos PDF
+// Si la descarga falla, el usuario puede usar el script install_poppler.bat incluido
+const
+  POPPLER_DOWNLOAD_URL = 'https://github.com/oschwartz10612/poppler-windows/releases/download/v25.11.0-0/Release-25.11.0-0.zip';
   
 // Rutas comunes donde Tesseract puede estar instalado
 function GetTesseractPaths(): TArrayOfString;
@@ -192,6 +204,45 @@ begin
   end;
   
   Log('Tesseract no encontrado');
+end;
+
+// Función para verificar si Poppler está instalado
+function IsPopplerInstalled(): Boolean;
+var
+  ErrorCode: Integer;
+  PopplerPaths: TArrayOfString;
+  Path: String;
+  I: Integer;
+begin
+  Result := False;
+  
+  // Primero, intentar ejecutar pdftoppm desde PATH
+  if Exec('pdftoppm', '-v', '', SW_HIDE, ewWaitUntilTerminated, ErrorCode) then
+  begin
+    Result := True;
+    Log('Poppler encontrado en PATH');
+    Exit;
+  end;
+  
+  // Si no está en PATH, buscar en rutas comunes
+  SetArrayLength(PopplerPaths, 4);
+  PopplerPaths[0] := 'C:\poppler\bin\pdftoppm.exe';
+  PopplerPaths[1] := ExpandConstant('{pf}\poppler\bin\pdftoppm.exe');
+  PopplerPaths[2] := ExpandConstant('{pf32}\poppler\bin\pdftoppm.exe');
+  PopplerPaths[3] := 'C:\poppler\poppler-25.11.0\Library\bin\pdftoppm.exe';
+  
+  for I := 0 to GetArrayLength(PopplerPaths) - 1 do
+  begin
+    Path := PopplerPaths[I];
+    if FileExists(Path) then
+    begin
+      Result := True;
+      Log('Poppler encontrado en: ' + Path);
+      Exit;
+    end;
+  end;
+  
+  Log('Poppler no encontrado');
 end;
 
 // Función para agregar Tesseract como dependencia usando CodeDependencies
@@ -295,6 +346,7 @@ end;
 function InitializeSetup: Boolean;
 var
   TesseractNeedsInstall: Boolean;
+  PopplerNeedsInstall: Boolean;
 begin
   Result := True;
   
@@ -308,6 +360,17 @@ begin
   else
   begin
     Log('Tesseract OCR ya está instalado. No se requiere instalación adicional.');
+  end;
+  
+  // Verificar Poppler (incluido en el paquete, se instalará automáticamente)
+  PopplerNeedsInstall := not IsPopplerInstalled();
+  if PopplerNeedsInstall then
+  begin
+    Log('Poppler no está instalado. Se instalará automáticamente desde el paquete incluido.');
+  end
+  else
+  begin
+    Log('Poppler ya está instalado en el sistema. El paquete incluido no se instalará.');
   end;
 end;
 
@@ -340,11 +403,13 @@ end;
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   TesseractNeedsInstall: Boolean;
+  PopplerNeedsInstall: Boolean;
 begin
   Result := '';
   
   // Verificar si Tesseract está instalado
   TesseractNeedsInstall := not IsTesseractInstalled();
+  PopplerNeedsInstall := not IsPopplerInstalled();
   
   if TesseractNeedsInstall then
   begin
@@ -366,6 +431,62 @@ begin
   begin
     Log('Tesseract OCR ya está instalado. No se requiere instalación adicional.');
   end;
+  
+  // Información sobre Poppler (incluido en el paquete)
+  if PopplerNeedsInstall then
+  begin
+    Log('Poppler no está instalado. Se instalará automáticamente desde el paquete incluido.');
+    // No agregar mensaje de advertencia ya que Poppler se instalará automáticamente
+  end
+  else
+  begin
+    Log('Poppler ya está instalado en el sistema. El paquete incluido no se instalará.');
+  end;
+end;
+
+// Función para agregar Poppler al PATH del sistema
+function AddPopplerToPath(): Boolean;
+var
+  PopplerBinPath: String;
+  CurrentPath: String;
+  NewPath: String;
+begin
+  Result := False;
+  PopplerBinPath := ExpandConstant('{autopf}\poppler\bin');
+  
+  // Verificar que el directorio existe
+  if not DirExists(PopplerBinPath) then
+  begin
+    Log('Error: Directorio de Poppler no existe: ' + PopplerBinPath);
+    Exit;
+  end;
+  
+  // Obtener el PATH actual del sistema
+  if not RegQueryStringValue(HKEY_LOCAL_MACHINE, 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment', 'Path', CurrentPath) then
+  begin
+    Log('Error: No se pudo leer el PATH del sistema');
+    Exit;
+  end;
+  
+  // Verificar si ya está en el PATH
+  if Pos(PopplerBinPath, CurrentPath) > 0 then
+  begin
+    Log('Poppler ya está en el PATH del sistema');
+    Result := True;
+    Exit;
+  end;
+  
+  // Agregar Poppler al PATH
+  NewPath := CurrentPath + ';' + PopplerBinPath;
+  if RegWriteStringValue(HKEY_LOCAL_MACHINE, 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment', 'Path', NewPath) then
+  begin
+    Log('Poppler agregado al PATH del sistema: ' + PopplerBinPath);
+    Result := True;
+  end
+  else
+  begin
+    Log('Error: No se pudo agregar Poppler al PATH del sistema');
+  end;
 end;
 
 // Función que se ejecuta después de la instalación
@@ -373,6 +494,7 @@ procedure CurStepChanged(CurStep: TSetupStep);
 var
   EnvFile: String;
   EnvContent: String;
+  PopplerInstalled: Boolean;
 begin
   if CurStep = ssPostInstall then
   begin
@@ -387,6 +509,27 @@ begin
     begin
       DeleteFile(TesseractInstallerPath);
       Log('Instalador temporal de Tesseract eliminado');
+    end;
+    
+    // Configurar Poppler si no está instalado
+    PopplerInstalled := IsPopplerInstalled();
+    if not PopplerInstalled then
+    begin
+      Log('Configurando Poppler desde el paquete incluido...');
+      // Poppler ya fue copiado a {autopf}\poppler\bin durante la instalación
+      // Solo necesitamos agregarlo al PATH
+      if AddPopplerToPath() then
+      begin
+        Log('Poppler configurado exitosamente');
+      end
+      else
+      begin
+        Log('Advertencia: Poppler fue instalado pero no se pudo agregar al PATH. Puede requerir reinicio.');
+      end;
+    end
+    else
+    begin
+      Log('Poppler ya está instalado en el sistema. No se requiere configuración adicional.');
     end;
   end;
 end;

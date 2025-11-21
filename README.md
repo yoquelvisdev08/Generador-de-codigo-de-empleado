@@ -63,6 +63,45 @@ La aplicación incluye verificación OCR automática de carnets generados usando
 
 **Sin Tesseract**: La aplicación funcionará normalmente, pero la verificación OCR estará deshabilitada y los carnets se generarán sin verificación automática.
 
+### Requisitos Adicionales para Verificación OCR de PDFs (Opcional)
+
+Para verificar archivos PDF con OCR, necesitas **Poppler** instalado en tu sistema. Sin Poppler, los PDFs se generarán correctamente pero no se podrán verificar con OCR.
+
+**Instalación automática de Poppler (Recomendado):**
+
+1. Ejecuta el script de instalación como administrador:
+   ```batch
+   install_poppler.bat
+   ```
+   - Clic derecho en `install_poppler.bat`
+   - Selecciona "Ejecutar como administrador"
+
+2. El script descargará, extraerá e instalará Poppler automáticamente.
+
+**Instalación manual de Poppler:**
+
+1. **Descargar Poppler**:
+   - Visita: https://github.com/oschwartz10612/poppler-windows/releases
+   - Descarga el archivo ZIP más reciente
+
+2. **Extraer el archivo**:
+   - Extrae el ZIP en una ubicación fija (ej: `C:\poppler`)
+   - Deberías ver una carpeta `bin` con los ejecutables
+
+3. **Agregar al PATH del sistema**:
+   - Presiona `Win + X` → "Sistema"
+   - "Configuración avanzada del sistema" → "Variables de entorno"
+   - En "Variables del sistema", selecciona `Path` → "Editar"
+   - "Nuevo" → Agrega la ruta al directorio `bin` (ej: `C:\poppler\bin`)
+   - "Aceptar" en todas las ventanas
+
+4. **Verificar la instalación**:
+   ```bash
+   pdftoppm -v
+   ```
+
+**Nota**: Después de instalar Poppler, reinicia la aplicación para que lo detecte.
+
 ## Instalación
 
 1. Clonar o descargar el proyecto

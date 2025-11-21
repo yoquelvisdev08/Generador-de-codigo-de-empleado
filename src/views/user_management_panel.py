@@ -11,21 +11,24 @@ import re
 from src.models.database import DatabaseManager
 from src.utils.password_utils import hash_contraseña, formatear_contraseña_hash
 from src.utils.user_logger import user_logger
+from src.utils.auth_utils import solicitar_autenticacion_admin
 
 
 class UserManagementPanel(QWidget):
     """Panel de gestión de usuarios para administradores"""
     
-    def __init__(self, usuario_actual: str, parent=None):
+    def __init__(self, usuario_actual: str, rol_actual: str = "admin", parent=None):
         """
         Inicializa el panel de gestión de usuarios
         
         Args:
             usuario_actual: Usuario actual autenticado
+            rol_actual: Rol del usuario actual ('admin' o 'user')
             parent: Widget padre
         """
         super().__init__(parent)
         self.usuario_actual = usuario_actual
+        self.rol_actual = rol_actual
         self.db_manager = DatabaseManager()
         self.init_ui()
     
@@ -466,6 +469,15 @@ class UserManagementPanel(QWidget):
                 "Advertencia",
                 "No puede eliminar su propio usuario. Por favor seleccione otro usuario."
             )
+            return
+        
+        # Verificar autenticación de administrador antes de eliminar
+        if not solicitar_autenticacion_admin(
+            self,
+            f"eliminar el usuario '{usuario_seleccionado}'",
+            self.usuario_actual,
+            self.rol_actual
+        ):
             return
         
         # Confirmar eliminación

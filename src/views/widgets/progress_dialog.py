@@ -54,7 +54,15 @@ class ProgressDialog(QDialog):
         # Botón cancelar (opcional, se puede ocultar)
         self.boton_cancelar = QPushButton("Cancelar")
         self.boton_cancelar.setVisible(False)
+        self.boton_cancelar.clicked.connect(self._on_cancelar_clicked)
         layout.addWidget(self.boton_cancelar)
+        
+        # Flag para indicar si se canceló
+        self.cancelado = False
+        # Flag para indicar si la operación se completó exitosamente
+        self.completado = False
+        # Flag para indicar si el usuario está cerrando manualmente
+        self.cerrando_manual = False
     
     def actualizar_progreso(self, actual: int, total: int, mensaje: str = ""):
         """
@@ -164,4 +172,69 @@ class ProgressDialog(QDialog):
             cancelable: Si True, muestra el botón cancelar
         """
         self.boton_cancelar.setVisible(cancelable)
+    
+    def _on_cancelar_clicked(self):
+        """Maneja el clic en el botón cancelar"""
+        # Si ya está completado, no hacer nada
+        if self.completado:
+            return
+        
+        from PyQt6.QtWidgets import QMessageBox
+        respuesta = QMessageBox.question(
+            self,
+            "Confirmar Cancelación",
+            "¿Está seguro de que desea cancelar la generación?\n\n"
+            "El proceso se detendrá y los carnets generados hasta el momento no se guardarán.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        
+        if respuesta == QMessageBox.StandardButton.Yes:
+            self.cancelado = True
+            self.label_mensaje.setText("Cancelando... Por favor espere...")
+            from PyQt6.QtWidgets import QApplication
+            QApplication.processEvents()
+    
+    def fue_cancelado(self) -> bool:
+        """
+        Verifica si el usuario canceló la operación
+        
+        Returns:
+            True si fue cancelado, False en caso contrario
+        """
+        return self.cancelado
+    
+    def closeEvent(self, event):
+        """Maneja el evento de cierre de la ventana"""
+        # Si ya está completado o cancelado, cerrar sin preguntar
+        if self.completado or self.cancelado:
+            event.accept()
+            return
+        
+        # Si el usuario está cerrando manualmente (no por código), preguntar
+        # Verificar si el evento viene de una acción del usuario
+        # En PyQt6, si event.spontaneous() es True, significa que el usuario cerró la ventana
+        if event.spontaneous():
+            from PyQt6.QtWidgets import QMessageBox
+            respuesta = QMessageBox.question(
+                self,
+                "Confirmar Cancelación",
+                "¿Está seguro de que desea cancelar la generación?\n\n"
+                "El proceso se detendrá y los carnets generados hasta el momento no se guardarán.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            
+            if respuesta == QMessageBox.StandardButton.Yes:
+                self.cancelado = True
+                event.accept()
+            else:
+                event.ignore()
+        else:
+            # Si no es espontáneo (cerrado por código), cerrar sin preguntar
+            event.accept()
+    
+    def marcar_completado(self):
+        """Marca la operación como completada, permitiendo cerrar sin confirmación"""
+        self.completado = True
 
