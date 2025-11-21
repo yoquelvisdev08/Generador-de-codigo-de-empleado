@@ -45,6 +45,13 @@ installer\output_installer\GeneradorCodigosCarnet_Setup_v1.0.0.exe
 
 Tamaño: ~150-250 MB (todo incluido, listo para distribuir)
 
+### Características del Instalador
+
+- **Instalación automática de Tesseract OCR**: El instalador verifica si Tesseract está instalado y, si no lo está, lo descarga e instala automáticamente durante el proceso de instalación.
+- **Sin dependencias manuales**: El usuario no necesita instalar Python, Tesseract u otras dependencias manualmente.
+- **Instalación silenciosa**: Tesseract se instala de forma silenciosa con los idiomas Spanish y English pre-seleccionados.
+- **Verificación automática**: El instalador verifica que Tesseract se haya instalado correctamente antes de completar la instalación.
+
 ---
 
 ## 📋 Requisitos
@@ -53,10 +60,19 @@ Tamaño: ~150-250 MB (todo incluido, listo para distribuir)
 - Python 3.10+ (ya instalado)
 - Entorno virtual activo
 - Inno Setup 6.0+ → [Descargar](https://jrsoftware.org/isdl.php)
+- **Inno Dependency Installer (CodeDependencies.iss)** → [Descargar](https://github.com/DomGries/InnoDependencyInstaller) (opcional pero recomendado)
+  - Ya incluido en la carpeta `installer/InnoDependencyInstaller-master/`
+  - El script lo detectará automáticamente
+  - Si no está disponible, el instalador funcionará pero mostrará un mensaje para instalar Tesseract manualmente
 
 ### Para el usuario final:
 - Windows 10/11 (64-bit)
 - NO necesita Python ni dependencias
+- **Tesseract OCR**: Se instalará automáticamente durante la instalación si no está presente
+  - El instalador verificará si Tesseract está instalado
+  - Si no está instalado, lo descargará e instalará automáticamente
+  - Se instalarán los idiomas Spanish y English automáticamente
+  - Requiere conexión a Internet para la descarga automática
 
 ---
 
@@ -95,6 +111,12 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 ### Error: "Inno Setup no encontrado"
 Instalar desde: https://jrsoftware.org/isdl.php
+
+### Error: "CodeDependencies.iss no encontrado" o descarga de Tesseract falla
+El instalador intentará descargar Tesseract OCR automáticamente, pero requiere `CodeDependencies.iss`:
+1. El archivo ya debería estar en `installer/InnoDependencyInstaller-master/CodeDependencies.iss`
+2. Si no está disponible, el instalador funcionará pero el usuario deberá instalar Tesseract manualmente
+3. El script detectará automáticamente si `CodeDependencies.iss` está disponible
 
 ### El ejecutable no abre
 1. Compilar con `console=True` en `build_spec.spec` (línea 109)

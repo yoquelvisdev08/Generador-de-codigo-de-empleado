@@ -50,19 +50,29 @@ INFORMACIÓN IMPORTANTE ANTES DE INSTALAR
    - Generación de códigos de barras (Code128, EAN13, EAN8, Code39)
    - Diseño y generación de carnets personalizados
    - Editor de plantillas HTML para carnets
+   - Verificación OCR automática de carnets (requiere Tesseract OCR)
    - Sistema de autenticación con roles (Admin, Editor, Visor)
    - Exportación a Excel
    - Gestión de empleados
    - Historial y auditoría
    - Copias de seguridad automáticas
 
-6. PRIMER USO:
+6. INSTALACIÓN AUTOMÁTICA DE TESSERACT OCR:
+   - El instalador verificará automáticamente si Tesseract OCR está instalado
+   - Si no está instalado, lo descargará e instalará automáticamente
+   - Se instalarán los idiomas Spanish y English automáticamente
+   - La verificación OCR de carnets estará disponible inmediatamente después de la instalación
+   - Si la descarga falla, la aplicación funcionará normalmente pero sin verificación OCR
+
+7. PRIMER USO:
    - Al iniciar por primera vez, se le pedirá crear un usuario administrador
    - Guarde sus credenciales en un lugar seguro
    - Configure las opciones según sus necesidades
 
 7. CONEXIÓN A INTERNET:
-   - NO se requiere conexión a internet para el funcionamiento
+   - Se requiere conexión a internet SOLO durante la instalación (si Tesseract OCR no está instalado)
+   - El instalador descargará e instalará Tesseract OCR automáticamente si no está presente
+   - Una vez instalado, NO se requiere conexión a internet para el funcionamiento
    - Todos los datos se almacenan localmente
    - No se envía información a servidores externos
 

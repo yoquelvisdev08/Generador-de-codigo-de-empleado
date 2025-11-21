@@ -35,16 +35,22 @@ if (-not (Test-Path "main.py")) {
 }
 
 Write-Host "[1/6] Verificando entorno virtual..." -ForegroundColor Cyan
-if (-not (Test-Path "env\Scripts\Activate.ps1")) {
-    Write-ErrorMsg "No se encontro el entorno virtual en env\"
-    Write-Host "Por favor cree el entorno virtual primero con: python -m venv env"
+# Buscar entorno virtual (env312 o env)
+$envPath = $null
+if (Test-Path "env312\Scripts\Activate.ps1") {
+    $envPath = "env312"
+} elseif (Test-Path "env\Scripts\Activate.ps1") {
+    $envPath = "env"
+} else {
+    Write-ErrorMsg "No se encontro el entorno virtual en env312\ o env\"
+    Write-Host "Por favor cree el entorno virtual primero con: python -m venv env312"
     Read-Host "Presione Enter para salir"
     exit 1
 }
-Write-SuccessMsg "Entorno virtual encontrado"
+Write-SuccessMsg "Entorno virtual encontrado: $envPath"
 
 Write-Host "[2/6] Activando entorno virtual..." -ForegroundColor Cyan
-& "env\Scripts\Activate.ps1"
+& "$envPath\Scripts\Activate.ps1"
 if ($LASTEXITCODE -ne 0) {
     Write-ErrorMsg "No se pudo activar el entorno virtual"
     Read-Host "Presione Enter para salir"

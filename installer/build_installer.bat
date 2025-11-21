@@ -18,15 +18,21 @@ if not exist "main.py" (
 )
 
 echo [1/6] Verificando entorno virtual...
-if not exist "env\Scripts\activate.bat" (
-    echo ERROR: No se encontro el entorno virtual en env\
-    echo Por favor cree el entorno virtual primero con: python -m venv env
+REM Buscar entorno virtual (env312 o env)
+if exist "env312\Scripts\activate.bat" (
+    set ENV_PATH=env312
+) else if exist "env\Scripts\activate.bat" (
+    set ENV_PATH=env
+) else (
+    echo ERROR: No se encontro el entorno virtual en env312\ o env\
+    echo Por favor cree el entorno virtual primero con: python -m venv env312
     pause
     exit /b 1
 )
 
+echo Entorno virtual encontrado: %ENV_PATH%
 echo [2/6] Activando entorno virtual...
-call env\Scripts\activate.bat
+call %ENV_PATH%\Scripts\activate.bat
 
 echo [3/6] Verificando instalacion de PyInstaller...
 pip show pyinstaller >nul 2>&1

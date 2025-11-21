@@ -49,9 +49,10 @@ def get_data_dir():
         if data_dir_env:
             return Path(data_dir_env)
         
-        # Si no hay variable de entorno, usar ProgramData
+        # Si no hay variable de entorno, usar AppData del usuario (más fácil de acceder)
         if os.name == 'nt':  # Windows
-            base = os.getenv('PROGRAMDATA', 'C:\\ProgramData')
+            # Usar AppData\Roaming del usuario en lugar de ProgramData
+            base = os.getenv('APPDATA', os.path.expanduser('~\\AppData\\Roaming'))
             return Path(base) / app_name
         else:  # Linux/Mac
             return Path.home() / f'.{app_name.lower().replace(" ", "_")}'
