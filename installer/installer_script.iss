@@ -79,9 +79,8 @@ Source: "..\assets\*"; DestDir: "{app}\assets"; Flags: ignoreversion recursesubd
 ; Archivos de configuración
 Source: "..\config\*"; DestDir: "{app}\config"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; Templates de carnets (se instalarán en la ubicación seleccionada por el usuario)
+; NOTA: Solo se copian los templates. La base de datos se creará automáticamente vacía cuando se ejecute la aplicación por primera vez
 Source: "..\data\templates_carnet\*"; DestDir: "{code:GetDataDir}\templates_carnet"; Flags: ignoreversion recursesubdirs createallsubdirs
-; Base de datos vacía (si existe) - se instalará en la ubicación seleccionada por el usuario
-Source: "..\data\codigos_barras.db"; DestDir: "{code:GetDataDir}"; Flags: ignoreversion onlyifdoesntexist
 ; Documentación
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion isreadme
 Source: "LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
