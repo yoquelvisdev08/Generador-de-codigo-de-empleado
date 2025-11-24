@@ -48,11 +48,12 @@ Tamaño: ~150-250 MB (todo incluido, listo para distribuir)
 ### Características del Instalador
 
 - **Instalación automática de Tesseract OCR**: El instalador verifica si Tesseract está instalado y, si no lo está, lo descarga e instala automáticamente durante el proceso de instalación.
-- **Instalación de Poppler (opcional)**: El instalador verifica si Poppler está instalado. Si no lo está, el usuario puede instalarlo después usando el script `install_poppler.bat` incluido en la aplicación.
+- **Instalación automática de Poppler**: El instalador incluye Poppler empaquetado y lo instala automáticamente en `C:\Program Files\poppler` si no está presente en el sistema.
 - **Sin dependencias manuales**: El usuario no necesita instalar Python, Tesseract u otras dependencias manualmente.
 - **Instalación silenciosa**: Tesseract se instala de forma silenciosa con los idiomas Spanish y English pre-seleccionados.
-- **Verificación automática**: El instalador verifica que Tesseract se haya instalado correctamente antes de completar la instalación.
+- **Verificación automática**: El instalador verifica que Tesseract y Poppler se hayan instalado correctamente antes de completar la instalación.
 - **Scripts de instalación incluidos**: Los scripts `install_poppler.bat` y `verificar_poppler.bat` están incluidos en la instalación para facilitar la instalación manual de Poppler si es necesario.
+- **Incluye todas las funcionalidades**: Generación de códigos de barras, códigos de servicio, carnets personalizados, verificación OCR, exportación a Excel, y más.
 
 ---
 

@@ -18,10 +18,12 @@ Aplicación de escritorio con interfaz gráfica para generar códigos de barras 
 - **Importación/Exportación Excel**: Gestión masiva de datos mediante archivos Excel
 - **Editor de Carnets**: Diseño de carnets de identificación con templates HTML
 - **Verificación OCR automática**: Verificación automática de carnets generados usando Tesseract OCR para asegurar que los datos se renderizaron correctamente
+- **Generación de Códigos de Barras de Servicio**: Sistema simplificado para generar códigos de barras específicos para servicios con nombre de servicio visible debajo del código
 - **Gestión de Usuarios**: Panel administrativo para crear usuarios, cambiar contraseñas y eliminar usuarios
 - **Gestión completa**: Crear, ver, eliminar códigos y gestionar imágenes
 - **Control de permisos**: Los administradores tienen acceso a funciones adicionales
 - **Separación de nombres y apellidos**: Manejo independiente de nombres y apellidos para mejor organización de datos
+- **Eliminación múltiple**: Selección y eliminación de múltiples servicios o códigos a la vez
 
 ## Requisitos del Sistema
 
@@ -180,7 +182,8 @@ O usando el script de ejecución (recomendado):
 La aplicación cuenta con un navbar permanente en la parte superior con los siguientes menús:
 
 **Menú Tools:**
-- **Código de Barras**: Acceso al generador de códigos de barras
+- **Código de Barras**: Acceso al generador de códigos de barras para empleados
+- **Código de Barras de Servicio**: Acceso al generador de códigos de barras para servicios (simplificado)
 - **Crear Carnet**: Acceso al editor de carnets de identificación
 
 **Menú Usuario (solo para administradores):**
@@ -203,6 +206,28 @@ La aplicación cuenta con un navbar permanente en la parte superior con los sigu
 
 El sistema generará automáticamente un ID único personalizado según las opciones seleccionadas. El ID aparecerá debajo del código y es el valor que se leerá al escanearlo.
 
+### Generar un código de barras de servicio
+
+1. Acceda a "Código de Barras de Servicio" desde el menú **Tools** en el navbar
+2. Ingrese el nombre del servicio en el campo "Nombre del Servicio"
+3. Configure el tamaño de fuente del texto que aparecerá debajo del código (rango: 10-50 píxeles, por defecto: 50)
+4. Haga clic en "Generar Código de Barras"
+5. El sistema generará automáticamente un ID único alfanumérico de 10 caracteres
+6. El nombre del servicio aparecerá debajo del código de barras con el tamaño de fuente configurado
+7. El código se guardará automáticamente en la base de datos de servicios
+
+**Características del generador de servicios:**
+- **Formato fijo**: Code128 (optimizado para servicios)
+- **ID único automático**: Generación automática de ID único de 10 caracteres alfanuméricos
+- **Texto personalizable**: El nombre del servicio aparece debajo del código con tamaño de fuente configurable
+- **Verificación OCR**: Verificación automática del código generado para asegurar que sea legible
+- **Tabla de servicios**: Visualización de todos los servicios registrados con búsqueda y filtrado
+- **Exportación individual**: Descarga de imagen PNG individual del servicio seleccionado
+- **Exportación masiva**: Descarga de todos los servicios en un archivo ZIP
+- **Importación/Exportación Excel**: Gestión masiva de servicios mediante archivos Excel
+- **Eliminación múltiple**: Seleccione múltiples servicios (Ctrl+clic o Shift+clic) y elimínelos en una sola operación
+- **Vista previa**: Al seleccionar un servicio en la tabla, se muestra la imagen en el panel de generación
+
 ### Formatos de Código de Barras
 
 - **Code128**: Acepta caracteres alfanuméricos (hasta 80 caracteres)
@@ -218,10 +243,11 @@ El sistema generará automáticamente un ID único personalizado según las opci
 - **Vista Previa**: Al seleccionar un código en la tabla, la imagen se muestra automáticamente en el panel de generación
 - **Exportar Seleccionados**: Seleccione múltiples códigos (Ctrl+clic o Shift+clic) y exporte las imágenes a una carpeta. Los archivos se nombran como: `nombre_empleado_codigo_barras.png`
 - **Exportar Todos (ZIP)**: Exporta todos los códigos en un archivo ZIP con el mismo formato de nombres
-- **Eliminar**: Seleccione un código y haga clic en "Eliminar" para removerlo de la base de datos
+- **Eliminar**: Seleccione uno o múltiples códigos (Ctrl+clic o Shift+clic) y haga clic en "Eliminar" para removerlos de la base de datos. Se puede eliminar múltiples códigos en una sola operación
 
 #### Funcionalidades Excel
 
+**Para Códigos de Barras de Empleados:**
 - **Exportar Data en Excel**: Exporta todos los datos de la base de datos a un archivo Excel con formato profesional. Las columnas exportadas son: ID, Código de Barras, ID Único, Fecha de Creación, Nombres, Apellidos, Código de Empleado y Formato
 - **Importar Data en Excel**: Importa datos desde un archivo Excel y genera códigos de barras automáticamente. El proceso incluye:
   - Validación de datos (columnas requeridas: "Nombres", "Apellidos" y "Código de Empleado")
@@ -232,6 +258,17 @@ El sistema generará automáticamente un ID único personalizado según las opci
   - Diálogo de progreso para mantener al usuario informado
   - **Normalización de formatos**: Si el Excel contiene formatos distintos de Code128 (EAN13, EAN8, Code39), estos se convierten automáticamente a Code128 durante la importación. Si no se especifica formato en el Excel, se utiliza el formato seleccionado en el dropdown de la interfaz o Code128 por defecto
 - **Descargar Excel de Ejemplo**: Descarga un archivo Excel de ejemplo con el formato correcto para importar datos. El archivo incluye las columnas: Nombres, Apellidos, Código de Empleado y Formato (opcional). La columna "Formato (opcional)" permite especificar un formato, pero todos los formatos se normalizarán a Code128 durante la importación
+
+**Para Códigos de Barras de Servicios:**
+- **Exportar Servicios en Excel**: Exporta todos los servicios registrados a un archivo Excel con formato profesional. Las columnas exportadas son: ID, Nombre del Servicio, Código de Barras, ID Único, Fecha de Creación y Formato
+- **Importar Servicios desde Excel**: Importa servicios desde un archivo Excel y genera códigos de barras automáticamente. El proceso incluye:
+  - Validación de datos (columna requerida: "Nombre del Servicio")
+  - Generación automática de códigos de barras con ID único
+  - Validación de códigos generados mediante OCR
+  - Detección de duplicados
+  - Diálogo de progreso para mantener al usuario informado
+  - Formato fijo: Code128 para todos los servicios
+- **Descargar Excel de Ejemplo para Servicios**: Descarga un archivo Excel de ejemplo con el formato correcto para importar servicios. El archivo incluye la columna: Nombre del Servicio
 
 #### Funcionalidades de Administración (Solo Admin)
 
@@ -362,12 +399,14 @@ Generador-de-codigo-de-empleado/
 │   │       ├── progress_dialog.py       # Diálogo de progreso para operaciones largas
 │   │       ├── carnet_preview_panel.py  # Vista previa de carnet
 │   │       ├── carnet_controls_panel.py  # Controles de diseño de carnet
-│   │       └── carnet_employees_panel.py # Lista de empleados para carnet
+│   │       ├── carnet_employees_panel.py # Lista de empleados para carnet
+│   │       └── service_panel.py         # Panel de generación de códigos de barras de servicio
 │   │
 │   ├── controllers/          # Controladores (Presenter)
 │   │   ├── __init__.py
 │   │   ├── main_controller.py  # Controlador principal
-│   │   └── carnet_controller.py # Controlador de carnets
+│   │   ├── carnet_controller.py # Controlador de carnets
+│   │   └── service_controller.py # Controlador de códigos de barras de servicio
 │   │
 │   └── utils/               # Utilidades
 │       ├── __init__.py
@@ -428,6 +467,24 @@ La tabla `codigos_barras` contiene los siguientes campos:
 **Nota**: El sistema mantiene compatibilidad con datos antiguos que usan `nombre_empleado`. Los nuevos registros usan `nombres` y `apellidos` por separado.
 
 **Nota**: El campo `nombre_archivo` no se muestra en la vista de códigos de barras, ya que es exclusivo del generador de carnets. En la vista de códigos de barras, el nombre del archivo se genera dinámicamente cuando es necesario.
+
+### Tabla `servicios`
+
+La tabla `servicios` contiene los siguientes campos:
+
+- `id`: Identificador único del registro (auto-incremental)
+- `codigo_barras`: ID único aleatorio alfanumérico codificado en el código de barras
+- `id_unico`: ID único aleatorio alfanumérico (mismo que codigo_barras)
+- `nombre_servicio`: Nombre del servicio asociado al código de barras
+- `fecha_creacion`: Timestamp de creación
+- `formato`: Formato del código de barras utilizado (siempre Code128 para servicios)
+- `nombre_archivo`: Nombre del archivo de imagen generado
+
+**Características:**
+- Los servicios tienen un sistema de generación simplificado con menos opciones que los códigos de empleados
+- El nombre del servicio aparece debajo del código de barras con tamaño de fuente configurable
+- Verificación OCR automática para asegurar que el código generado sea legible
+- Gestión independiente de la tabla de códigos de empleados
 
 ### Tabla `usuarios`
 
@@ -597,12 +654,13 @@ La aplicación soporta dos roles:
   - Todas las funciones de usuario regular
 
 - **Usuario (`user`)**: Tiene acceso a las funcionalidades básicas:
-  - Generar códigos de barras
-  - Ver y buscar códigos
-  - Exportar códigos
+  - Generar códigos de barras (empleados y servicios)
+  - Ver y buscar códigos y servicios
+  - Exportar códigos y servicios
   - Crear carnets
   - **NO** tiene acceso a funciones de administración
   - **NO** tiene acceso al menú "Usuario" ni gestión de usuarios
+  - **NO** puede eliminar servicios (requiere autenticación de administrador)
 
 ### Información del Usuario
 
@@ -633,6 +691,10 @@ El sistema registra las siguientes acciones:
 - Eliminación de códigos
 - Exportación de códigos (individual, masiva, Excel)
 - Importación desde Excel
+- Generación de códigos de barras de servicio
+- Eliminación de servicios
+- Exportación de servicios (individual, masiva, Excel)
+- Importación de servicios desde Excel
 - Creación de backups
 - Limpieza de base de datos
 - Limpieza de imágenes huérfanas

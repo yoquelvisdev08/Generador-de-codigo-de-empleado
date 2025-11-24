@@ -90,6 +90,19 @@ class DatabaseManager:
                 )
             """)
             
+            # Crear tabla de servicios
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS servicios (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    codigo_barras TEXT UNIQUE NOT NULL,
+                    id_unico TEXT UNIQUE NOT NULL,
+                    nombre_servicio TEXT NOT NULL,
+                    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    formato TEXT NOT NULL DEFAULT 'Code128',
+                    nombre_archivo TEXT
+                )
+            """)
+            
             # Migraciones: agregar columnas si no existen
             columnas_existentes = self._obtener_columnas_tabla(cursor)
             
@@ -194,6 +207,27 @@ class DatabaseManager:
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_email 
                 ON usuarios(email)
+            """)
+            
+            # Índices para tabla de servicios
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_servicios_codigo_barras 
+                ON servicios(codigo_barras)
+            """)
+            
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_servicios_id_unico 
+                ON servicios(id_unico)
+            """)
+            
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_servicios_fecha_creacion 
+                ON servicios(fecha_creacion DESC)
+            """)
+            
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_servicios_nombre 
+                ON servicios(nombre_servicio)
             """)
             
             conn.commit()
@@ -656,6 +690,206 @@ class DatabaseManager:
                 logger.error(f"Error al eliminar imagen huérfana {nombre_archivo}: {e}")
         
         return eliminadas, errores
+    
+    # ==================== MÉTODOS DE GESTIÓN DE SERVICIOS ====================
+    
+    def verificar_servicio_existe(self, codigo_barras: str) -> bool:
+        """
+        Verifica si un código de barras de servicio ya existe
+        
+        Args:
+            codigo_barras: Código de barras a verificar
+            
+        Returns:
+            True si existe, False en caso contrario
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT 1 FROM servicios WHERE codigo_barras = ? LIMIT 1",
+                (codigo_barras,)
+            )
+            return cursor.fetchone() is not None
+    
+    def verificar_servicio_id_unico_existe(self, id_unico: str) -> bool:
+        """
+        Verifica si un ID único de servicio ya existe
+        
+        Args:
+            id_unico: ID único a verificar
+            
+        Returns:
+            True si existe, False en caso contrario
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT 1 FROM servicios WHERE id_unico = ? LIMIT 1",
+                (id_unico,)
+            )
+            return cursor.fetchone() is not None
+    
+    def insertar_servicio(self, codigo_barras: str, id_unico: str, 
+                         nombre_servicio: str, formato: str = "Code128",
+                         nombre_archivo: Optional[str] = None) -> Optional[int]:
+        """
+        Inserta un nuevo servicio en la base de datos
+        
+        Args:
+            codigo_barras: Código de barras del servicio
+            id_unico: ID único del servicio
+            nombre_servicio: Nombre del servicio
+            formato: Formato del código de barras (por defecto Code128)
+            nombre_archivo: Nombre del archivo de imagen (opcional)
+            
+        Returns:
+            ID del servicio insertado si se insertó correctamente, None en caso contrario
+        """
+        if self.verificar_servicio_existe(codigo_barras) or self.verificar_servicio_id_unico_existe(id_unico):
+            return None
+        
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            try:
+                cursor.execute("""
+                    INSERT INTO servicios 
+                    (codigo_barras, id_unico, nombre_servicio, formato, nombre_archivo)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (codigo_barras, id_unico, nombre_servicio, formato, nombre_archivo))
+                
+                servicio_id = cursor.lastrowid
+                conn.commit()
+                logger.info(f"Servicio insertado: {nombre_servicio} - {id_unico} (ID: {servicio_id})")
+                return servicio_id
+            except sqlite3.IntegrityError as e:
+                logger.warning(f"Error de integridad al insertar servicio: {e}")
+                conn.rollback()
+                return None
+    
+    def obtener_todos_servicios(self) -> List[Tuple]:
+        """
+        Obtiene todos los servicios ordenados por fecha de creación
+        
+        Returns:
+            Lista de tuplas con los datos de los servicios
+            Formato: (id, codigo_barras, id_unico, nombre_servicio, fecha_creacion, formato, nombre_archivo)
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, codigo_barras, id_unico, nombre_servicio, fecha_creacion, formato, nombre_archivo
+                FROM servicios
+                ORDER BY fecha_creacion DESC
+            """)
+            return cursor.fetchall()
+    
+    def buscar_servicio(self, termino: str) -> List[Tuple]:
+        """
+        Busca servicios por término de búsqueda
+        
+        Args:
+            termino: Término de búsqueda
+            
+        Returns:
+            Lista de tuplas con los servicios que coinciden
+            Formato: (id, codigo_barras, id_unico, nombre_servicio, fecha_creacion, formato, nombre_archivo)
+        """
+        termino_busqueda = f"%{termino}%"
+        
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, codigo_barras, id_unico, nombre_servicio, fecha_creacion, formato, nombre_archivo
+                FROM servicios
+                WHERE codigo_barras LIKE ? 
+                   OR id_unico LIKE ? 
+                   OR nombre_servicio LIKE ?
+                ORDER BY fecha_creacion DESC
+            """, (termino_busqueda, termino_busqueda, termino_busqueda))
+            
+            return cursor.fetchall()
+    
+    def obtener_servicio_por_id(self, servicio_id: int) -> Optional[Tuple]:
+        """
+        Obtiene un servicio por su ID
+        
+        Args:
+            servicio_id: ID del servicio
+            
+        Returns:
+            Tupla con los datos del servicio o None si no existe
+            Formato: (id, codigo_barras, id_unico, nombre_servicio, fecha_creacion, formato, nombre_archivo)
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, codigo_barras, id_unico, nombre_servicio, fecha_creacion, formato, nombre_archivo
+                FROM servicios
+                WHERE id = ?
+            """, (servicio_id,))
+            
+            return cursor.fetchone()
+    
+    def eliminar_servicio(self, servicio_id: int, eliminar_imagen: bool = True) -> bool:
+        """
+        Elimina un servicio por su ID
+        Crea backup automático antes de eliminar
+        
+        Args:
+            servicio_id: ID del servicio a eliminar
+            eliminar_imagen: Si True, elimina también la imagen asociada
+            
+        Returns:
+            True si se eliminó correctamente, False en caso contrario
+        """
+        nombre_archivo = None
+        if eliminar_imagen:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT nombre_archivo FROM servicios WHERE id = ?",
+                    (servicio_id,)
+                )
+                resultado = cursor.fetchone()
+                if resultado:
+                    nombre_archivo = resultado[0]
+        
+        self.crear_backup_automatico(f"antes_eliminar_servicio_id_{servicio_id}")
+        
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM servicios WHERE id = ?", (servicio_id,))
+            filas_afectadas = cursor.rowcount
+            conn.commit()
+            
+            if filas_afectadas > 0:
+                logger.info(f"Servicio eliminado: ID {servicio_id}")
+                
+                if eliminar_imagen and nombre_archivo:
+                    ruta_imagen = IMAGES_DIR / nombre_archivo
+                    if ruta_imagen.exists():
+                        try:
+                            ruta_imagen.unlink()
+                            logger.info(f"Imagen eliminada: {nombre_archivo}")
+                        except Exception as e:
+                            logger.warning(f"No se pudo eliminar la imagen {nombre_archivo}: {e}")
+            
+            return filas_afectadas > 0
+    
+    def obtener_estadisticas_servicios(self) -> dict:
+        """
+        Obtiene estadísticas de servicios
+        
+        Returns:
+            Diccionario con estadísticas (total_servicios)
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM servicios")
+            return {
+                "total_servicios": cursor.fetchone()[0]
+            }
     
     # ==================== MÉTODOS DE GESTIÓN DE USUARIOS ====================
     

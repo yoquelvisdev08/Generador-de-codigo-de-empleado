@@ -88,8 +88,8 @@ Source: "LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 ; Archivo .env de ejemplo
 Source: "env.template"; DestDir: "{app}"; DestName: ".env"; Flags: ignoreversion
 ; Scripts de instalación de dependencias
-Source: "..\install_poppler.bat"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\verificar_poppler.bat"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\script\install_poppler.bat"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\script\verificar_poppler.bat"; DestDir: "{app}"; Flags: ignoreversion
 ; Poppler - empaquetado e instalado automáticamente en C:\Program Files\poppler
 Source: "poppler-25.07.0\Library\bin\*"; DestDir: "{autopf}\poppler\bin"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "poppler-25.07.0\share\*"; DestDir: "{autopf}\poppler\share"; Flags: ignoreversion recursesubdirs createallsubdirs

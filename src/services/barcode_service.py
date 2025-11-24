@@ -42,7 +42,9 @@ class BarcodeService:
     def generar_codigo_barras(self, datos: str, formato: str = "Code128",
                               id_unico: Optional[str] = None,
                               nombres: Optional[str] = None,
-                              apellidos: Optional[str] = None) -> Tuple[str, str, Path]:
+                              apellidos: Optional[str] = None,
+                              texto_debajo: Optional[str] = None,
+                              tamano_fuente_texto: Optional[int] = None) -> Tuple[str, str, Path]:
         """
         Genera un código de barras y lo guarda como imagen
         
@@ -52,6 +54,8 @@ class BarcodeService:
             id_unico: ID único del código (opcional)
             nombres: Nombres del empleado (opcional)
             apellidos: Apellidos del empleado (opcional)
+            texto_debajo: Texto a mostrar debajo del código de barras (opcional)
+            tamano_fuente_texto: Tamaño de fuente en píxeles para el texto debajo (opcional, por defecto 20)
             
         Returns:
             Tupla con (datos, id_unico, ruta_imagen)
@@ -77,9 +81,15 @@ class BarcodeService:
                 self.directorio_imagenes
             )
             
-            codigo.save(str(ruta_imagen.with_suffix('')), options={
-                **BARCODE_IMAGE_OPTIONS
-            })
+            # Configurar opciones de imagen
+            opciones_imagen = {**BARCODE_IMAGE_OPTIONS.copy()}
+            
+            # Desactivar write_text para evitar que la librería agregue el texto automáticamente
+            # Lo agregaremos manualmente después para tener mejor control
+            opciones_imagen['write_text'] = False
+            
+            # Guardar el código de barras sin texto
+            codigo.save(str(ruta_imagen.with_suffix('')), options=opciones_imagen)
             
             # Asegurar que la extensión .png esté presente
             ruta_imagen_final = ruta_imagen.with_suffix('.png')
@@ -89,6 +99,84 @@ class BarcodeService:
                 if temp_path.exists():
                     temp_path.rename(ruta_imagen_final)
                     ruta_imagen = ruta_imagen_final
+            
+            # Si se proporciona texto, agregarlo manualmente con PIL para mejor control
+            if texto_debajo:
+                try:
+                    with Image.open(ruta_imagen) as img:
+                        from PIL import ImageDraw, ImageFont
+                        
+                        # Convertir a RGB si es necesario
+                        if img.mode != 'RGB':
+                            img = img.convert('RGB')
+                        
+                        ancho_original = img.width
+                        alto_original = img.height
+                        
+                        # Usar el tamaño de fuente proporcionado o un valor por defecto
+                        font_size = tamano_fuente_texto if tamano_fuente_texto else 50
+                        
+                        # Crear un draw temporal para calcular el ancho del texto
+                        temp_img = Image.new('RGB', (1, 1), 'white')
+                        temp_draw = ImageDraw.Draw(temp_img)
+                        
+                        # Intentar usar una fuente más grande y legible
+                        try:
+                            try:
+                                font = ImageFont.truetype("arial.ttf", font_size)
+                            except:
+                                try:
+                                    font = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", font_size)
+                                except:
+                                    # Si no encuentra Arial, intentar con otras fuentes comunes
+                                    try:
+                                        font = ImageFont.truetype("C:/Windows/Fonts/calibri.ttf", font_size)
+                                    except:
+                                        try:
+                                            font = ImageFont.truetype("C:/Windows/Fonts/tahoma.ttf", font_size)
+                                        except:
+                                            font = ImageFont.load_default()
+                        except:
+                            font = ImageFont.load_default()
+                        
+                        # Calcular el ancho necesario para el texto
+                        bbox_texto = temp_draw.textbbox((0, 0), texto_debajo, font=font)
+                        ancho_texto = bbox_texto[2] - bbox_texto[0]
+                        
+                        # Agregar padding horizontal al texto (márgenes izquierdo y derecho)
+                        padding_horizontal = 40
+                        ancho_texto_con_padding = ancho_texto + padding_horizontal
+                        
+                        # Calcular el ancho final de la imagen (el mayor entre el código y el texto con padding)
+                        ancho_final = max(ancho_original, ancho_texto_con_padding)
+                        
+                        # Calcular espacio necesario para el texto (aumentado para fuente más grande)
+                        espacio_texto = max(35, font_size + 15)  # Al menos 35px o fuente + 15px
+                        nueva_altura = alto_original + espacio_texto
+                        
+                        # Crear nueva imagen con fondo blanco (con ancho suficiente para el texto)
+                        nueva_imagen = Image.new('RGB', (ancho_final, nueva_altura), 'white')
+                        
+                        # Centrar el código de barras horizontalmente si la imagen es más ancha
+                        x_codigo = (ancho_final - ancho_original) // 2
+                        nueva_imagen.paste(img, (x_codigo, 0))
+                        
+                        # Agregar texto debajo del código de barras
+                        draw = ImageDraw.Draw(nueva_imagen)
+                        
+                        # Calcular posición del texto (centrado horizontalmente, cerca del código)
+                        x_texto = (ancho_final - ancho_texto) // 2
+                        y_texto = alto_original + 8  # Aumentado a 8px para mejor separación con fuente más grande
+                        
+                        # Dibujar el texto
+                        draw.text((x_texto, y_texto), texto_debajo, fill='black', font=font)
+                        
+                        # Guardar la imagen modificada
+                        nueva_imagen.save(ruta_imagen, 'PNG', optimize=True)
+                        logger.debug(f"Texto agregado manualmente debajo del código de barras: '{texto_debajo}'")
+                except Exception as e:
+                    logger.warning(f"No se pudo agregar texto manualmente al código de barras: {e}")
+                    # Continuar sin el texto si falla
             
             # Verificar integridad de la imagen guardada
             if not self._verificar_integridad_imagen(ruta_imagen):

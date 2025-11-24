@@ -10,6 +10,7 @@ from src.views.widgets.generation_panel import GenerationPanel
 from src.views.widgets.list_panel import ListPanel
 from src.views.carnet_window import CarnetPanel
 from src.views.user_management_panel import UserManagementPanel
+from src.views.widgets.service_panel import ServicePanel
 
 
 class MainWindow(QMainWindow):
@@ -32,6 +33,7 @@ class MainWindow(QMainWindow):
         self.generation_panel = None
         self.carnet_panel = None
         self.user_management_panel = None
+        self.service_panel = None
         self.list_panel = None
         self.stacked_widget = None
         self.init_ui()
@@ -83,7 +85,11 @@ class MainWindow(QMainWindow):
         self.carnet_panel = CarnetPanel()
         self.stacked_widget.addWidget(self.carnet_panel)
         
-        # Panel de gestión de usuarios (vista terciaria - índice 2, solo para admin)
+        # Panel de servicios (vista terciaria - índice 2)
+        self.service_panel = ServicePanel()
+        self.stacked_widget.addWidget(self.service_panel)
+        
+        # Panel de gestión de usuarios (vista cuaternaria - índice 3, solo para admin)
         if self.rol_usuario == "admin":
             self.user_management_panel = UserManagementPanel(
                 usuario_actual=self.nombre_usuario,
@@ -193,9 +199,13 @@ class MainWindow(QMainWindow):
         # Acción "Crear Carnet"
         accion_crear_carnet = menu_tools.addAction("Crear Carnet")
         
+        # Acción "Creación de código de barra de servicio"
+        accion_codigo_servicio = menu_tools.addAction("Creación de código de barra de servicio")
+        
         # Guardar referencias para conectar en el controlador
         self.accion_codigo_barras = accion_codigo_barras
         self.accion_crear_carnet = accion_crear_carnet
+        self.accion_codigo_servicio = accion_codigo_servicio
         
         # Asignar menú al botón
         self.boton_tools.setMenu(menu_tools)
@@ -322,10 +332,19 @@ class MainWindow(QMainWindow):
         self.vista_actual = "carnet"
         self._actualizar_estilo_navbar()
     
+    def mostrar_vista_servicios(self):
+        """Muestra la vista de creación de códigos de barras de servicio"""
+        self.stacked_widget.setCurrentIndex(2)
+        # Ocultar el panel de listado
+        self.list_panel.hide()
+        # Actualizar navbar
+        self.vista_actual = "servicios"
+        self._actualizar_estilo_navbar()
+    
     def mostrar_vista_gestion_usuarios(self):
         """Muestra la vista de gestión de usuarios"""
         if self.rol_usuario == "admin" and self.user_management_panel:
-            self.stacked_widget.setCurrentIndex(2)
+            self.stacked_widget.setCurrentIndex(3)
             # Ocultar el panel de listado
             self.list_panel.hide()
             # Actualizar navbar

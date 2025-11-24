@@ -20,6 +20,7 @@ from src.utils.auth_utils import solicitar_autenticacion_admin
 from src.utils.id_generator import IDGenerator
 from src.utils.user_logger import user_logger
 from src.controllers.carnet_controller import CarnetController
+from src.controllers.service_controller import ServiceController
 
 
 class MainController:
@@ -59,6 +60,14 @@ class MainController:
         # Inicializar controlador de carnet (se inicializa cuando se muestra la vista)
         self.carnet_controller = None
         
+        # Inicializar controlador de servicios
+        self.service_controller = ServiceController(
+            self.main_window.service_panel,
+            self.db_manager,
+            self.usuario,
+            self.rol
+        )
+        
         self._conectar_senales()
         self._cargar_datos_iniciales()
     
@@ -67,6 +76,7 @@ class MainController:
         # Navbar - navegación principal (menú Tools)
         self.main_window.accion_codigo_barras.triggered.connect(self.mostrar_vista_generacion)
         self.main_window.accion_crear_carnet.triggered.connect(self.mostrar_vista_carnet)
+        self.main_window.accion_codigo_servicio.triggered.connect(self.mostrar_vista_servicios)
         
         # Navbar - menú Usuario (solo para administradores)
         if self.rol == "admin":
@@ -894,6 +904,10 @@ class MainController:
     def mostrar_vista_generacion(self):
         """Cambia a la vista de generación de códigos"""
         self.main_window.mostrar_vista_generacion()
+    
+    def mostrar_vista_servicios(self):
+        """Cambia a la vista de creación de códigos de barras de servicio"""
+        self.main_window.mostrar_vista_servicios()
     
     def mostrar_gestion_usuarios(self):
         """Muestra la vista de gestión de usuarios"""

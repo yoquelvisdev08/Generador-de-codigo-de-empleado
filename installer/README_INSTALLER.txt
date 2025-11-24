@@ -48,12 +48,16 @@ INFORMACIÓN IMPORTANTE ANTES DE INSTALAR
 
 5. CARACTERÍSTICAS DEL SOFTWARE:
    - Generación de códigos de barras (Code128, EAN13, EAN8, Code39)
+   - Generación de códigos de barras de servicio (simplificado)
    - Diseño y generación de carnets personalizados
    - Editor de plantillas HTML para carnets
    - Verificación OCR automática de carnets (requiere Tesseract OCR)
+   - Verificación automática de códigos de barras (lectura y validación)
    - Sistema de autenticación con roles (Admin, Editor, Visor)
    - Exportación a Excel
    - Gestión de empleados
+   - Gestión de servicios
+   - Descarga masiva de códigos (ZIP)
    - Historial y auditoría
    - Copias de seguridad automáticas
 

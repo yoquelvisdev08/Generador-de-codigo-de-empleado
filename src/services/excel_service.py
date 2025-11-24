@@ -103,6 +103,303 @@ class ExcelService:
             logger.error(f"Error al exportar a Excel: {e}", exc_info=True)
             return False, f"Error al exportar: {str(e)}"
     
+    def exportar_servicios_a_excel(self, ruta_archivo: Path) -> Tuple[bool, str]:
+        """
+        Exporta todos los servicios a un archivo Excel
+        
+        Args:
+            ruta_archivo: Ruta donde guardar el archivo Excel
+            
+        Returns:
+            Tupla (éxito, mensaje)
+        """
+        try:
+            # Obtener todos los servicios de la base de datos
+            servicios = self.db_manager.obtener_todos_servicios()
+            
+            if not servicios:
+                return False, "No hay servicios en la base de datos para exportar"
+            
+            # Crear workbook
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Servicios"
+            
+            # Columnas para servicios: id, codigo_barras, id_unico, nombre_servicio, fecha_creacion, formato, nombre_archivo
+            columnas = [
+                "ID",
+                "Código de Barras",
+                "ID Único",
+                "Nombre del Servicio",
+                "Fecha de Creación",
+                "Formato"
+            ]
+            
+            # Estilo para encabezados
+            header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+            header_font = Font(bold=True, color="FFFFFF")
+            header_alignment = Alignment(horizontal="center", vertical="center")
+            
+            # Escribir encabezados
+            for col_idx, columna in enumerate(columnas, start=1):
+                cell = ws.cell(row=1, column=col_idx, value=columna)
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = header_alignment
+            
+            # Escribir datos (excluyendo nombre_archivo que es el último campo)
+            for row_idx, servicio in enumerate(servicios, start=2):
+                # servicio es una tupla: (id, codigo_barras, id_unico, nombre_servicio, fecha_creacion, formato, nombre_archivo)
+                # Solo escribimos los primeros 6 campos (excluyendo nombre_archivo)
+                for col_idx in range(len(columnas)):
+                    valor = servicio[col_idx] if col_idx < len(servicio) else ""
+                    ws.cell(row=row_idx, column=col_idx + 1, value=valor)
+            
+            # Ajustar ancho de columnas
+            for col_idx in range(1, len(columnas) + 1):
+                col_letter = get_column_letter(col_idx)
+                ws.column_dimensions[col_letter].width = 20
+            
+            # Guardar archivo
+            wb.save(str(ruta_archivo))
+            logger.info(f"Excel de servicios exportado exitosamente: {ruta_archivo}")
+            return True, f"Se exportaron {len(servicios)} servicios exitosamente"
+            
+        except Exception as e:
+            logger.error(f"Error al exportar servicios a Excel: {e}", exc_info=True)
+            return False, f"Error al exportar: {str(e)}"
+    
+    def generar_excel_ejemplo_servicios(self, ruta_archivo: Path) -> Tuple[bool, str]:
+        """
+        Genera un archivo Excel de ejemplo para importar servicios
+        
+        Args:
+            ruta_archivo: Ruta donde guardar el archivo Excel
+            
+        Returns:
+            Tupla (éxito, mensaje)
+        """
+        try:
+            # Crear workbook
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Servicios"
+            
+            # Columnas para servicios
+            columnas = [
+                "Nombre del Servicio"
+            ]
+            
+            # Estilo para encabezados
+            header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+            header_font = Font(bold=True, color="FFFFFF")
+            header_alignment = Alignment(horizontal="center", vertical="center")
+            
+            # Escribir encabezados
+            for col_idx, columna in enumerate(columnas, start=1):
+                cell = ws.cell(row=1, column=col_idx, value=columna)
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = header_alignment
+            
+            # Agregar datos de ejemplo
+            ejemplos = [
+                "Servicio de Limpieza",
+                "Servicio de Mantenimiento",
+                "Servicio de Seguridad"
+            ]
+            
+            for row_idx, ejemplo in enumerate(ejemplos, start=2):
+                ws.cell(row=row_idx, column=1, value=ejemplo)
+            
+            # Ajustar ancho de columnas
+            for col_idx in range(1, len(columnas) + 1):
+                col_letter = get_column_letter(col_idx)
+                ws.column_dimensions[col_letter].width = 30
+            
+            # Guardar archivo
+            wb.save(str(ruta_archivo))
+            logger.info(f"Excel de ejemplo de servicios generado exitosamente: {ruta_archivo}")
+            return True, "Archivo Excel de ejemplo generado exitosamente"
+            
+        except Exception as e:
+            logger.error(f"Error al generar Excel de ejemplo de servicios: {e}", exc_info=True)
+            return False, f"Error al generar archivo: {str(e)}"
+    
+    def importar_servicios_desde_excel(
+        self, 
+        ruta_archivo: Path,
+        callback_progreso: Optional[callable] = None,
+        tamano_fuente: Optional[int] = None
+    ) -> Tuple[bool, Dict[str, int], List[str]]:
+        """
+        Importa servicios desde un archivo Excel y genera códigos de barras
+        
+        Args:
+            ruta_archivo: Ruta al archivo Excel a importar
+            callback_progreso: Función callback para reportar progreso
+                              Recibe (actual, total, mensaje)
+            tamano_fuente: Tamaño de fuente para el texto debajo del código (opcional)
+            
+        Returns:
+            Tupla (éxito, estadísticas, errores)
+            estadísticas: {'exitosos': int, 'errores': int, 'duplicados': int, 'total': int}
+            errores: Lista de mensajes de error
+        """
+        try:
+            import openpyxl
+            from src.services.barcode_service import BarcodeService
+            from src.utils.id_generator import IDGenerator
+            
+            if not ruta_archivo.exists():
+                return False, {}, ["El archivo Excel no existe"]
+            
+            # Cargar workbook
+            wb = openpyxl.load_workbook(str(ruta_archivo), data_only=True)
+            ws = wb.active
+            
+            # Leer encabezados
+            headers = []
+            for cell in ws[1]:
+                headers.append(cell.value if cell.value else "")
+            
+            # Buscar índice de columna requerida
+            try:
+                idx_nombre_servicio = headers.index("Nombre del Servicio")
+            except ValueError:
+                return False, {}, ["Columna requerida no encontrada: 'Nombre del Servicio'. Asegúrese de tener esta columna en el Excel"]
+            
+            # Estadísticas
+            estadisticas = {
+                'exitosos': 0,
+                'errores': 0,
+                'duplicados': 0,
+                'total': 0
+            }
+            errores = []
+            
+            # Servicios a procesar (para segunda pasada)
+            servicios_a_procesar = []
+            
+            # Procesar filas (empezar desde la fila 2, saltando encabezados)
+            total_filas = ws.max_row - 1  # Excluir encabezado
+            estadisticas['total'] = total_filas
+            
+            barcode_service = BarcodeService()
+            
+            for row_idx in range(2, ws.max_row + 1):
+                if callback_progreso:
+                    callback_progreso(
+                        row_idx - 1, 
+                        total_filas, 
+                        f"Validando fila {row_idx - 1} de {total_filas}..."
+                    )
+                
+                # Leer datos de la fila
+                nombre_servicio = ws.cell(row=row_idx, column=idx_nombre_servicio + 1).value
+                
+                # Validar datos obligatorios
+                if not nombre_servicio:
+                    estadisticas['errores'] += 1
+                    errores.append(f"Fila {row_idx}: Falta el nombre del servicio")
+                    continue
+                
+                # Limpiar valor
+                nombre_servicio = str(nombre_servicio).strip()
+                
+                if not nombre_servicio:
+                    estadisticas['errores'] += 1
+                    errores.append(f"Fila {row_idx}: El nombre del servicio está vacío")
+                    continue
+                
+                # Verificar si el servicio ya existe (por nombre)
+                servicios_existentes = self.db_manager.obtener_todos_servicios()
+                servicio_duplicado = any(s[3] == nombre_servicio for s in servicios_existentes)
+                
+                if servicio_duplicado:
+                    estadisticas['duplicados'] += 1
+                    errores.append(f"Fila {row_idx} ({nombre_servicio}): El servicio ya existe")
+                    continue
+                
+                # Agregar a la lista de servicios a procesar
+                servicios_a_procesar.append((row_idx, nombre_servicio))
+                estadisticas['exitosos'] += 1
+            
+            # Segunda pasada: generar códigos de barras
+            errores_final = []
+            exitosos_final = 0
+            
+            for idx, (row_idx, nombre_servicio) in enumerate(servicios_a_procesar, 1):
+                if callback_progreso:
+                    callback_progreso(
+                        idx,
+                        len(servicios_a_procesar),
+                        f"Generando código para: {nombre_servicio}..."
+                    )
+                
+                try:
+                    # Generar ID único
+                    id_unico_generado = IDGenerator.generar_id_personalizado(
+                        tipo="alfanumerico",
+                        longitud=10,
+                        incluir_nombre=False,
+                        texto_personalizado=None,
+                        verificar_duplicado=self.db_manager.verificar_servicio_existe
+                    )
+                    
+                    formato = "Code128"
+                    
+                    # Generar código de barras
+                    codigo_barras, id_unico_archivo, ruta_imagen = barcode_service.generar_codigo_barras(
+                        id_unico_generado, formato, id_unico_generado, None, None,
+                        texto_debajo=nombre_servicio, tamano_fuente_texto=tamano_fuente
+                    )
+                    
+                    # Validar código generado
+                    valido, mensaje_error = barcode_service.validar_codigo_barras(
+                        ruta_imagen, id_unico_generado
+                    )
+                    
+                    if not valido:
+                        if ruta_imagen.exists():
+                            ruta_imagen.unlink()
+                        errores_final.append(
+                            f"Fila {row_idx} ({nombre_servicio}): {mensaje_error}"
+                        )
+                        continue
+                    
+                    nombre_archivo = ruta_imagen.name
+                    
+                    # Guardar en base de datos
+                    servicio_id = self.db_manager.insertar_servicio(
+                        codigo_barras, id_unico_generado, nombre_servicio, formato, nombre_archivo
+                    )
+                    
+                    if servicio_id:
+                        exitosos_final += 1
+                    else:
+                        if ruta_imagen.exists():
+                            ruta_imagen.unlink()
+                        errores_final.append(
+                            f"Fila {row_idx} ({nombre_servicio}): No se pudo guardar en la base de datos"
+                        )
+                        
+                except Exception as e:
+                    logger.error(f"Error al procesar servicio {nombre_servicio}: {e}")
+                    errores_final.append(
+                        f"Fila {row_idx} ({nombre_servicio}): Error inesperado - {str(e)}"
+                    )
+            
+            estadisticas['exitosos'] = exitosos_final
+            estadisticas['errores'] += len(errores_final)
+            errores.extend(errores_final)
+            
+            return True, estadisticas, errores
+            
+        except Exception as e:
+            logger.error(f"Error al importar servicios desde Excel: {e}", exc_info=True)
+            return False, {}, [f"Error al importar: {str(e)}"]
+    
     def generar_excel_ejemplo(self, ruta_archivo: Path, formato_por_defecto: Optional[str] = None) -> Tuple[bool, str]:
         """
         Genera un archivo Excel de ejemplo con el formato esperado
